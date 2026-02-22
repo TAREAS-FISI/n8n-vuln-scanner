@@ -1,0 +1,193 @@
+{
+  "name": "02 — ZAP Scan (Sub-workflow)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer parámetros de entrada\nconst url = $input.first().json.url;\nconst scanId = $input.first().json.scan_id;\nreturn [{ json: { url, scanId } }];\n"
+      },
+      "id": "extract-params",
+      "name": "Extraer Parámetros",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://zap:8080/JSON/spider/action/scan/?url={{ encodeURIComponent($json.url) }}&maxChildren=10&recurse=true&subtreeOnly=true",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "spider-start",
+      "name": "ZAP Spider — Iniciar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const spiderScanId = $input.first().json.scan || '0';\nreturn [{ json: { spiderScanId, url: $('Extraer Parámetros').item.json.url, scanId: $('Extraer Parámetros').item.json.scanId } }];\n"
+      },
+      "id": "get-spider-id",
+      "name": "Obtener Spider ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "wait-spider",
+      "name": "Esperar Spider",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://zap:8080/JSON/spider/view/status/?scanId={{ $('Obtener Spider ID').item.json.spiderScanId }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "spider-poll",
+      "name": "ZAP Spider — Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "spider-done",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "100",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "spider-done",
+      "name": "¿Spider Listo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1540, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://zap:8080/JSON/ascan/action/scan/?url={{ encodeURIComponent($('Extraer Parámetros').item.json.url) }}&recurse=true&inScopeOnly=false",
+        "options": { "timeout": 30000 }
+      },
+      "id": "ascan-start",
+      "name": "ZAP Active Scan — Iniciar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1820, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ascanId = $input.first().json.scan || '0';\nreturn [{ json: { ascanId } }];\n"
+      },
+      "id": "get-ascan-id",
+      "name": "Obtener AScan ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2040, 220]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "wait-ascan",
+      "name": "Esperar Active Scan",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2260, 220]
+    },
+    {
+      "parameters": {
+        "url": "=http://zap:8080/JSON/ascan/view/status/?scanId={{ $('Obtener AScan ID').item.json.ascanId }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ascan-poll",
+      "name": "ZAP Active Scan — Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2480, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "ascan-done",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "100",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ascan-done",
+      "name": "¿Active Scan Listo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2700, 220]
+    },
+    {
+      "parameters": {
+        "url": "=http://zap:8080/JSON/alert/view/alerts/?baseurl={{ encodeURIComponent($('Extraer Parámetros').item.json.url) }}&start=0&count=500",
+        "options": { "timeout": 30000 }
+      },
+      "id": "get-alerts",
+      "name": "ZAP — Obtener Alertas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2980, 140]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear alertas ZAP → findings estándar\nconst scanId = $('Extraer Parámetros').item.json.scanId;\nconst alerts = $input.first().json.alerts || [];\nconst findings = [];\nconst riskMap = { '3': 'High', '2': 'Medium', '1': 'Low', '0': 'Info' };\nconst cvssFromRisk = { 'High': 7.5, 'Medium': 5.0, 'Low': 3.0, 'Info': 0.0 };\nconst seen = new Set();\n\nfor (const alert of alerts) {\n  const key = `${alert.alert}-${alert.risk}`;\n  if (seen.has(key)) continue;\n  seen.add(key);\n  const severity = riskMap[alert.risk] || 'Info';\n  findings.push({\n    source: 'zap',\n    category: alert.alert || 'Web Vulnerability',\n    title: `[ZAP] ${alert.alert || 'Unknown'}`,\n    severity,\n    cvss_score: cvssFromRisk[severity] || 0.0,\n    description: `${alert.description || ''}\\n\\nURL: ${alert.url || ''}\\nEvidencia: ${alert.evidence || 'N/A'}`,\n    remediation: alert.solution || 'Consultar OWASP para remediación.',\n    raw_data: { cweid: alert.cweid, wascid: alert.wascid, url: alert.url, confidence: alert.confidence }\n  });\n}\n\nreturn [{ json: { findings, total_zap: findings.length, scan_id: scanId } }];\n"
+      },
+      "id": "parse-alerts",
+      "name": "Parsear Alertas ZAP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3200, 140]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": { "main": [[{ "node": "Extraer Parámetros", "type": "main", "index": 0 }]] },
+    "Extraer Parámetros": { "main": [[{ "node": "ZAP Spider — Iniciar", "type": "main", "index": 0 }]] },
+    "ZAP Spider — Iniciar": { "main": [[{ "node": "Obtener Spider ID", "type": "main", "index": 0 }]] },
+    "Obtener Spider ID": { "main": [[{ "node": "Esperar Spider", "type": "main", "index": 0 }]] },
+    "Esperar Spider": { "main": [[{ "node": "ZAP Spider — Status", "type": "main", "index": 0 }]] },
+    "ZAP Spider — Status": { "main": [[{ "node": "¿Spider Listo?", "type": "main", "index": 0 }]] },
+    "¿Spider Listo?": { "main": [[{ "node": "ZAP Active Scan — Iniciar", "type": "main", "index": 0 }], [{ "node": "Esperar Spider", "type": "main", "index": 0 }]] },
+    "ZAP Active Scan — Iniciar": { "main": [[{ "node": "Obtener AScan ID", "type": "main", "index": 0 }]] },
+    "Obtener AScan ID": { "main": [[{ "node": "Esperar Active Scan", "type": "main", "index": 0 }]] },
+    "Esperar Active Scan": { "main": [[{ "node": "ZAP Active Scan — Status", "type": "main", "index": 0 }]] },
+    "ZAP Active Scan — Status": { "main": [[{ "node": "¿Active Scan Listo?", "type": "main", "index": 0 }]] },
+    "¿Active Scan Listo?": { "main": [[{ "node": "ZAP — Obtener Alertas", "type": "main", "index": 0 }], [{ "node": "Esperar Active Scan", "type": "main", "index": 0 }]] },
+    "ZAP — Obtener Alertas": { "main": [[{ "node": "Parsear Alertas ZAP", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "vuln-scanner" }, { "name": "zap" }]
+}

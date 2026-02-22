@@ -1,0 +1,50 @@
+{
+  "name": "03 — Nuclei Scan (Sub-workflow)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const url = $input.first().json.url;\nconst scanId = $input.first().json.scan_id;\nreturn [{ json: { url, scanId } }];\n"
+      },
+      "id": "extract-params",
+      "name": "Extraer Parámetros",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "command": "=docker exec nuclei nuclei -u {{ $json.url }} -j -severity critical,high,medium -silent -timeout 5 -retries 1 -no-color 2>/dev/null || echo ''"
+      },
+      "id": "run-nuclei",
+      "name": "Ejecutar Nuclei",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear JSONL de Nuclei → findings estándar\nconst scanId = $('Extraer Parámetros').item.json.scanId;\nconst rawOutput = $input.first().json.stdout || '';\nconst findings = [];\nconst lines = rawOutput.split('\\n').filter(line => line.trim());\n\nconst severityMap = { 'critical': 'Critical', 'high': 'High', 'medium': 'Medium', 'low': 'Low', 'info': 'Info' };\nconst cvssMap = { 'Critical': 9.5, 'High': 7.5, 'Medium': 5.0, 'Low': 3.0, 'Info': 0.0 };\n\nfor (const line of lines) {\n  try {\n    const r = JSON.parse(line);\n    const severity = severityMap[r.info?.severity?.toLowerCase()] || 'Info';\n    const templateId = r['template-id'] || r.templateID || 'unknown';\n    const name = r.info?.name || templateId;\n    const matchedAt = r['matched-at'] || r.host || '';\n    const ref = (r.info?.reference || []).join(', ');\n    const tags = (r.info?.tags || []).join(', ');\n    \n    findings.push({\n      source: 'nuclei',\n      category: tags || 'CVE/Misconfiguration',\n      title: `[Nuclei] ${name}`,\n      severity,\n      cvss_score: r.info?.classification?.cvss_score || cvssMap[severity] || 0.0,\n      description: `${r.info?.description || 'Detectado por template: ' + templateId}\\n\\nDetectado en: ${matchedAt}${ref ? '\\nReferencias: ' + ref : ''}`,\n      remediation: r.info?.remediation || 'Aplicar parches de seguridad y revisar configuración.',\n      raw_data: { template_id: templateId, matched_at: matchedAt, type: r.type }\n    });\n  } catch (e) { /* línea no JSON */ }\n}\n\nreturn [{ json: { findings, total_nuclei: findings.length, scan_id: scanId } }];\n"
+      },
+      "id": "parse-nuclei",
+      "name": "Parsear Nuclei",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": { "main": [[{ "node": "Extraer Parámetros", "type": "main", "index": 0 }]] },
+    "Extraer Parámetros": { "main": [[{ "node": "Ejecutar Nuclei", "type": "main", "index": 0 }]] },
+    "Ejecutar Nuclei": { "main": [[{ "node": "Parsear Nuclei", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "vuln-scanner" }, { "name": "nuclei" }]
+}

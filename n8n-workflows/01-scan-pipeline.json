@@ -1,0 +1,1074 @@
+{
+  "name": "01 — Scan Pipeline Principal",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scan",
+        "options": {
+          "responseMode": "responseNode"
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 460]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, message: 'Pipeline iniciado', scan_id: $json.body.scan_id }) }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [440, 460]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/phase",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"phase\": \"passive_checks\", \"status\": \"running\" }",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "phase1-start",
+      "name": "Fase 1 — Iniciar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 460]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/check/headers",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"url\": \"{{ $('Webhook Trigger').item.json.body.url }}\" }",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "check-headers",
+      "name": "Check Headers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/check/ssl",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"url\": \"{{ $('Webhook Trigger').item.json.body.url }}\" }",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "check-ssl",
+      "name": "Check SSL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/check/ports",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"url\": \"{{ $('Webhook Trigger').item.json.body.url }}\" }",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "check-ports",
+      "name": "Check Ports",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 520]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/check/cookies",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"url\": \"{{ $('Webhook Trigger').item.json.body.url }}\" }",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "check-cookies",
+      "name": "Check Cookies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 700]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/check/cors",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"url\": \"{{ $('Webhook Trigger').item.json.body.url }}\" }",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "check-cors",
+      "name": "Check CORS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 880]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/check/disclosure",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"url\": \"{{ $('Webhook Trigger').item.json.body.url }}\" }",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "check-disclosure",
+      "name": "Check Disclosure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 1060]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "mergeByFields": {},
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "merge-passive",
+      "name": "Merge Passive Checks",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1160, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combinar findings de los 6 checks pasivos\nconst items = $input.all();\nconst allFindings = [];\n\nfor (const item of items) {\n  const data = item.json;\n  if (data && data.findings && Array.isArray(data.findings)) {\n    for (const f of data.findings) {\n      allFindings.push(f);\n    }\n  }\n}\n\nreturn [{\n  json: {\n    findings: allFindings,\n    total_passive: allFindings.length,\n    scan_id: $('Webhook Trigger').item.json.body.scan_id,\n    url: $('Webhook Trigger').item.json.body.url\n  }\n}];\n"
+      },
+      "id": "combine-passive",
+      "name": "Combinar Findings Pasivos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1380, 460]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $json.scan_id }}/findings",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ findings: $json.findings }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "save-passive-findings",
+      "name": "Guardar Findings Pasivos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1600, 460]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/phase",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phase: 'passive_checks', status: 'completed', findings_count: $('Combinar Findings Pasivos').item.json.total_passive }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "phase1-complete",
+      "name": "Fase 1 — Completar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1820, 460]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/phase",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"phase\": \"testssl\", \"status\": \"running\" }",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "phase2-start",
+      "name": "Fase 2 — Iniciar testssl",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2060, 460]
+    },
+    {
+      "parameters": {
+        "command": "=docker exec testssl /bin/sh -c \"testssl.sh --jsonfile /tmp/scanner/testssl_{{ $('Webhook Trigger').item.json.body.scan_id }}.json --quiet --fast {{ $('Webhook Trigger').item.json.body.url }} 2>/dev/null; cat /tmp/scanner/testssl_{{ $('Webhook Trigger').item.json.body.scan_id }}.json 2>/dev/null || echo '[]'\""
+      },
+      "id": "run-testssl",
+      "name": "Ejecutar testssl.sh",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2280, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear resultados de testssl.sh y convertir a findings\nconst scanId = $('Webhook Trigger').item.json.body.scan_id;\nconst rawOutput = $input.first().json.stdout || '[]';\n\nlet testsslResults = [];\ntry {\n  testsslResults = JSON.parse(rawOutput);\n  if (!Array.isArray(testsslResults)) {\n    testsslResults = [testsslResults];\n  }\n} catch (e) {\n  // Si no es JSON válido, intentar parsear línea por línea\n  try {\n    testsslResults = rawOutput.split('\\n')\n      .filter(line => line.trim())\n      .map(line => JSON.parse(line));\n  } catch (e2) {\n    testsslResults = [];\n  }\n}\n\nconst findings = [];\n\n// Mapear severidades de testssl a nuestro formato\nconst severityMap = {\n  'CRITICAL': 'Critical',\n  'HIGH': 'High',\n  'MEDIUM': 'Medium',\n  'LOW': 'Low',\n  'OK': 'Info',\n  'INFO': 'Info',\n  'WARN': 'Medium'\n};\n\nconst cvssMap = {\n  'Critical': 9.0,\n  'High': 7.5,\n  'Medium': 5.0,\n  'Low': 3.0,\n  'Info': 0.0\n};\n\nfor (const result of testsslResults) {\n  if (!result || !result.id) continue;\n  \n  // Filtrar solo findings relevantes (no puramente informativos)\n  const severity = severityMap[result.severity] || 'Info';\n  \n  // Solo incluir hallazgos con problemas reales\n  if (result.finding && (severity !== 'Info' || result.id.includes('vulnerability'))) {\n    findings.push({\n      source: 'testssl',\n      category: 'SSL/TLS',\n      title: `[testssl] ${result.id}: ${result.finding.substring(0, 200)}`,\n      severity: severity,\n      cvss_score: cvssMap[severity] || 0.0,\n      description: `Test: ${result.id}\\nResultado: ${result.finding}`,\n      remediation: getRemediation(result.id, severity),\n      raw_data: result\n    });\n  }\n}\n\nfunction getRemediation(testId, severity) {\n  const remediations = {\n    'heartbleed': 'Actualizar OpenSSL inmediatamente. Revocar certificados y regenerar claves.',\n    'ccs': 'Actualizar OpenSSL para parchear CVE-2014-0224.',\n    'ticketbleed': 'Actualizar F5 BIG-IP al último firmware.',\n    'ROBOT': 'Deshabilitar RSA key exchange. Usar ECDHE.',\n    'secure_renego': 'Habilitar renegociación segura en el servidor.',\n    'secure_client_renego': 'Deshabilitar renegociación iniciada por el cliente.',\n    'BREACH': 'Deshabilitar compresión HTTP o implementar mitigaciones de CSRF.',\n    'POODLE_SSL': 'Deshabilitar SSLv3 completamente.',\n    'fallback_SCSV': 'Habilitar TLS_FALLBACK_SCSV.',\n    'SWEET32': 'Deshabilitar cifrados de bloque de 64 bits (3DES).',\n    'FREAK': 'Deshabilitar export cipher suites.',\n    'DROWN': 'Deshabilitar SSLv2 en todos los servidores que compartan la clave privada.',\n    'LOGJAM': 'Usar grupos DH de al menos 2048 bits.',\n    'BEAST': 'Preferir cifrados CBC de TLS 1.1+ o usar RC4 como fallback.',\n    'LUCKY13': 'Actualizar la implementación TLS y preferir cifrados AEAD.',\n    'RC4': 'Deshabilitar todos los cifrados RC4.',\n  };\n  \n  for (const [key, rem] of Object.entries(remediations)) {\n    if (testId.toLowerCase().includes(key.toLowerCase())) {\n      return rem;\n    }\n  }\n  \n  if (severity === 'Critical' || severity === 'High') {\n    return 'Actualizar la configuración SSL/TLS del servidor. Consultar Mozilla SSL Configuration Generator.';\n  }\n  return 'Revisar la configuración SSL/TLS según las mejores prácticas actuales.';\n}\n\nreturn [{\n  json: {\n    findings: findings,\n    total_testssl: findings.length,\n    scan_id: scanId\n  }\n}];\n"
+      },
+      "id": "parse-testssl",
+      "name": "Parsear testssl",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2500, 460]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $json.scan_id }}/findings",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ findings: $json.findings }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "save-testssl-findings",
+      "name": "Guardar Findings testssl",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2720, 460]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/phase",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phase: 'testssl', status: 'completed', findings_count: $('Parsear testssl').item.json.total_testssl }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "phase2-complete",
+      "name": "Fase 2 — Completar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2940, 460]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/phase",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"phase\": \"nuclei\", \"status\": \"running\" }",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "phase3-start",
+      "name": "Fase 3 — Iniciar Nuclei",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3180, 460]
+    },
+    {
+      "parameters": {
+        "command": "=docker exec nuclei nuclei -u {{ $('Webhook Trigger').item.json.body.url }} -j -severity critical,high,medium -silent -timeout 5 -retries 1 -no-color 2>/dev/null || echo ''"
+      },
+      "id": "run-nuclei",
+      "name": "Ejecutar Nuclei",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3400, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear resultados JSONL de Nuclei y convertir a findings\nconst scanId = $('Webhook Trigger').item.json.body.scan_id;\nconst rawOutput = $input.first().json.stdout || '';\n\nconst findings = [];\n\n// Nuclei output es JSONL (una línea JSON por resultado)\nconst lines = rawOutput.split('\\n').filter(line => line.trim());\n\nfor (const line of lines) {\n  try {\n    const result = JSON.parse(line);\n    \n    // Mapear severidad de Nuclei\n    const severityMap = {\n      'critical': 'Critical',\n      'high': 'High',\n      'medium': 'Medium',\n      'low': 'Low',\n      'info': 'Info',\n      'unknown': 'Info'\n    };\n    \n    const cvssMap = {\n      'Critical': 9.5,\n      'High': 7.5,\n      'Medium': 5.0,\n      'Low': 3.0,\n      'Info': 0.0\n    };\n    \n    const severity = severityMap[result.info?.severity?.toLowerCase()] || 'Info';\n    const templateId = result['template-id'] || result.templateID || 'unknown';\n    const name = result.info?.name || templateId;\n    const description = result.info?.description || `Detectado por template: ${templateId}`;\n    const matchedAt = result['matched-at'] || result.matched || result.host || '';\n    const reference = (result.info?.reference || []).join(', ');\n    const tags = (result.info?.tags || []).join(', ');\n    \n    findings.push({\n      source: 'nuclei',\n      category: tags || 'CVE/Misconfiguration',\n      title: `[Nuclei] ${name}`,\n      severity: severity,\n      cvss_score: result.info?.classification?.cvss_score || cvssMap[severity] || 0.0,\n      description: `${description}\\n\\nDetectado en: ${matchedAt}${reference ? '\\nReferencias: ' + reference : ''}${tags ? '\\nTags: ' + tags : ''}`,\n      remediation: result.info?.remediation || getRemediationForNuclei(severity, templateId),\n      raw_data: {\n        template_id: templateId,\n        matched_at: matchedAt,\n        type: result.type,\n        extracted_results: result['extracted-results'] || []\n      }\n    });\n  } catch (e) {\n    // Línea no es JSON válido, ignorar\n  }\n}\n\nfunction getRemediationForNuclei(severity, templateId) {\n  if (severity === 'Critical') {\n    return 'Actualizar el software afectado inmediatamente. Aplicar los parches de seguridad disponibles.';\n  } else if (severity === 'High') {\n    return 'Planificar la remediación a corto plazo. Revisar la configuración del servidor.';\n  } else if (severity === 'Medium') {\n    return 'Programar la corrección en el próximo ciclo de mantenimiento.';\n  }\n  return 'Evaluar si requiere acción según el contexto de la aplicación.';\n}\n\nreturn [{\n  json: {\n    findings: findings,\n    total_nuclei: findings.length,\n    scan_id: scanId\n  }\n}];\n"
+      },
+      "id": "parse-nuclei",
+      "name": "Parsear Nuclei",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3620, 460]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $json.scan_id }}/findings",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ findings: $json.findings }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "save-nuclei-findings",
+      "name": "Guardar Findings Nuclei",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3840, 460]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/phase",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phase: 'nuclei', status: 'completed', findings_count: $('Parsear Nuclei').item.json.total_nuclei }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "phase3-complete",
+      "name": "Fase 3 — Completar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4060, 460]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/phase",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"phase\": \"zap\", \"status\": \"running\" }",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "phase4-start",
+      "name": "Fase 4 — Iniciar ZAP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4300, 460]
+    },
+    {
+      "parameters": {
+        "url": "=http://zap:8080/JSON/spider/action/scan/?url={{ encodeURIComponent($('Webhook Trigger').item.json.body.url) }}&maxChildren=10&recurse=true&subtreeOnly=true",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "zap-spider-start",
+      "name": "ZAP Spider — Iniciar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4520, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener el scanId del spider\nconst spiderScanId = $input.first().json.scan || '0';\nreturn [{ json: { spiderScanId } }];\n"
+      },
+      "id": "get-spider-id",
+      "name": "Obtener Spider ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4740, 460]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "wait-spider",
+      "name": "Esperar Spider",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [4960, 460]
+    },
+    {
+      "parameters": {
+        "url": "=http://zap:8080/JSON/spider/view/status/?scanId={{ $('Obtener Spider ID').item.json.spiderScanId }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "zap-spider-poll",
+      "name": "ZAP Spider — Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [5180, 460]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "spider-done",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "100",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "spider-done-check",
+      "name": "¿Spider Listo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [5400, 460]
+    },
+    {
+      "parameters": {
+        "url": "=http://zap:8080/JSON/ascan/action/scan/?url={{ encodeURIComponent($('Webhook Trigger').item.json.body.url) }}&recurse=true&inScopeOnly=false&scanPolicyName=&method=&postData=",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "zap-ascan-start",
+      "name": "ZAP Active Scan — Iniciar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [5680, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener el scanId del active scan\nconst ascanId = $input.first().json.scan || '0';\nreturn [{ json: { ascanId } }];\n"
+      },
+      "id": "get-ascan-id",
+      "name": "Obtener AScan ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5900, 380]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "wait-ascan",
+      "name": "Esperar Active Scan",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [6120, 380]
+    },
+    {
+      "parameters": {
+        "url": "=http://zap:8080/JSON/ascan/view/status/?scanId={{ $('Obtener AScan ID').item.json.ascanId }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "zap-ascan-poll",
+      "name": "ZAP Active Scan — Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [6340, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ascan-done",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "100",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ascan-done-check",
+      "name": "¿Active Scan Listo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [6560, 380]
+    },
+    {
+      "parameters": {
+        "url": "=http://zap:8080/JSON/alert/view/alerts/?baseurl={{ encodeURIComponent($('Webhook Trigger').item.json.body.url) }}&start=0&count=500&riskId=",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "zap-get-alerts",
+      "name": "ZAP — Obtener Alertas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [6840, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear alertas de ZAP y convertir a findings\nconst scanId = $('Webhook Trigger').item.json.body.scan_id;\nconst alertsData = $input.first().json;\nconst alerts = alertsData.alerts || [];\n\nconst findings = [];\n\n// Mapear riesgo de ZAP a severidad\nconst riskMap = {\n  '3': 'High',      // High\n  '2': 'Medium',    // Medium  \n  '1': 'Low',       // Low\n  '0': 'Info'       // Informational\n};\n\nconst cvssFromRisk = {\n  'High': 7.5,\n  'Medium': 5.0,\n  'Low': 3.0,\n  'Info': 0.0\n};\n\n// Deduplicar alertas por nombre\nconst seen = new Set();\n\nfor (const alert of alerts) {\n  const key = `${alert.alert}-${alert.risk}`;\n  if (seen.has(key)) continue;\n  seen.add(key);\n  \n  const severity = riskMap[alert.risk] || 'Info';\n  \n  findings.push({\n    source: 'zap',\n    category: alert.alert || 'Web Vulnerability',\n    title: `[ZAP] ${alert.alert || alert.name || 'Unknown'}`,\n    severity: severity,\n    cvss_score: cvssFromRisk[severity] || 0.0,\n    description: `${alert.description || ''}\\n\\nURL: ${alert.url || ''}\\nEvidencia: ${alert.evidence || 'N/A'}\\nCWE: ${alert.cweid || 'N/A'}\\nWASC: ${alert.wascid || 'N/A'}`,\n    remediation: alert.solution || 'Consultar la documentación de OWASP para remediación.',\n    raw_data: {\n      alert_ref: alert.alertRef,\n      cweid: alert.cweid,\n      wascid: alert.wascid,\n      url: alert.url,\n      method: alert.method,\n      param: alert.param,\n      confidence: alert.confidence\n    }\n  });\n}\n\nreturn [{\n  json: {\n    findings: findings,\n    total_zap: findings.length,\n    scan_id: scanId\n  }\n}];\n"
+      },
+      "id": "parse-zap",
+      "name": "Parsear ZAP Alertas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [7060, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $json.scan_id }}/findings",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ findings: $json.findings }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "save-zap-findings",
+      "name": "Guardar Findings ZAP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [7280, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/phase",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phase: 'zap', status: 'completed', findings_count: $('Parsear ZAP Alertas').item.json.total_zap }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "phase4-complete",
+      "name": "Fase 4 — Completar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [7500, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/phase",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"phase\": \"scoring_llm\", \"status\": \"running\" }",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "phase5-start",
+      "name": "Fase 5 — Iniciar Scoring + LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [7740, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/score",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ scan_id: $('Webhook Trigger').item.json.body.scan_id }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "calculate-score",
+      "name": "Calcular Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [7960, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparar el prompt para Ollama con los findings del scan\nconst scanId = $('Webhook Trigger').item.json.body.scan_id;\nconst url = $('Webhook Trigger').item.json.body.url;\nconst scoreData = $input.first().json;\nconst score = scoreData.global_score || 0;\nconst breakdown = scoreData.breakdown || {};\nconst totalFindings = scoreData.total_findings || 0;\n\n// Obtener findings resumidos del breakdown\nlet findingsSummary = '';\nfor (const [source, data] of Object.entries(breakdown)) {\n  if (typeof data === 'object' && data.by_severity) {\n    findingsSummary += `\\n[${source}] ${data.findings_count} hallazgos: `;\n    findingsSummary += Object.entries(data.by_severity)\n      .map(([sev, count]) => `${count} ${sev}`)\n      .join(', ');\n  }\n}\n\nconst systemPrompt = `Eres un experto en ciberseguridad web con 15 años de experiencia.\nAnaliza los hallazgos de un escaneo de seguridad de la URL proporcionada.\n\nINSTRUCCIONES:\n1. Para cada vulnerabilidad crítica y alta, explica:\n   - Qué riesgo representa EN CONTEXTO (no genérico)\n   - Cómo podría ser explotada (escenario realista)\n   - Pasos de remediación con código/configuración\n2. Identifica CORRELACIONES entre hallazgos que aumenten el riesgo combinado\n3. Genera un RESUMEN EJECUTIVO de 3 líneas al inicio\n4. Ordena las recomendaciones de MAYOR a MENOR impacto\n5. Responde SIEMPRE en español\n6. Usa formato Markdown para mejor legibilidad`;\n\nconst userPrompt = `URL escaneada: ${url}\nScore de seguridad: ${score}/100\nTotal de hallazgos: ${totalFindings}\n\nDesglose por fuente:${findingsSummary}\n\nDesglose completo:\n${JSON.stringify(breakdown, null, 2)}`;\n\nreturn [{\n  json: {\n    scan_id: scanId,\n    url: url,\n    score: score,\n    system_prompt: systemPrompt,\n    user_prompt: userPrompt,\n    full_prompt: `${systemPrompt}\\n\\n${userPrompt}`\n  }\n}];\n"
+      },
+      "id": "prepare-llm-prompt",
+      "name": "Preparar Prompt LLM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [8180, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'llama3.2:3b', messages: [ { role: 'system', content: $json.system_prompt }, { role: 'user', content: $json.user_prompt } ], stream: false, options: { temperature: 0.3, num_predict: 2048 } }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "ollama-chat",
+      "name": "Ollama — Análisis LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [8400, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear respuesta de Ollama y guardar análisis\nconst scanId = $('Preparar Prompt LLM').item.json.scan_id;\nconst ollamaResponse = $input.first().json;\nconst llmContent = ollamaResponse.message?.content || 'Análisis no disponible.';\nconst modelUsed = ollamaResponse.model || 'llama3.2:3b';\nconst totalDuration = ollamaResponse.total_duration || 0;\nconst durationMs = Math.round(totalDuration / 1000000); // nanoseconds to ms\n\n// Intentar extraer recomendaciones estructuradas del contenido\nlet recommendations = [];\ntry {\n  // Buscar secciones numeradas\n  const lines = llmContent.split('\\n');\n  let currentRec = null;\n  \n  for (const line of lines) {\n    const match = line.match(/^\\d+\\.\\s+(.+)/);\n    if (match) {\n      if (currentRec) recommendations.push(currentRec);\n      currentRec = { title: match[1].trim(), details: '' };\n    } else if (currentRec && line.trim()) {\n      currentRec.details += line.trim() + ' ';\n    }\n  }\n  if (currentRec) recommendations.push(currentRec);\n} catch (e) {\n  recommendations = [{ title: 'Análisis completo', details: llmContent }];\n}\n\nreturn [{\n  json: {\n    scan_id: scanId,\n    raw_prompt: $('Preparar Prompt LLM').item.json.full_prompt,\n    raw_response: llmContent,\n    recommendations_json: recommendations,\n    model_used: modelUsed,\n    duration_ms: durationMs\n  }\n}];\n"
+      },
+      "id": "parse-llm",
+      "name": "Parsear Respuesta LLM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [8620, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $json.scan_id }}/llm-analysis",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ raw_prompt: $json.raw_prompt, raw_response: $json.raw_response, recommendations_json: $json.recommendations_json, model_used: $json.model_used, duration_ms: $json.duration_ms }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "save-llm-analysis",
+      "name": "Guardar Análisis LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [8840, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/phase",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"phase\": \"scoring_llm\", \"status\": \"completed\", \"findings_count\": 0 }",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "phase5-complete",
+      "name": "Fase 5 — Completar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [9060, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://backend:8000/scan/{{ $('Webhook Trigger').item.json.body.scan_id }}/complete",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "complete-scan",
+      "name": "Marcar Scan Completo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [9280, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error handler para testssl — marcar fase como fallida y continuar\nconst scanId = $('Webhook Trigger').item.json.body.scan_id;\nreturn [{\n  json: {\n    scan_id: scanId,\n    findings: [],\n    total_testssl: 0,\n    error: 'testssl.sh falló o no disponible'\n  }\n}];\n"
+      },
+      "id": "testssl-error-handler",
+      "name": "testssl Error Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2500, 660]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error handler para Nuclei — marcar fase como fallida y continuar\nconst scanId = $('Webhook Trigger').item.json.body.scan_id;\nreturn [{\n  json: {\n    scan_id: scanId,\n    findings: [],\n    total_nuclei: 0,\n    error: 'Nuclei falló o no disponible'\n  }\n}];\n"
+      },
+      "id": "nuclei-error-handler",
+      "name": "Nuclei Error Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3620, 660]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error handler para ZAP — marcar fase como fallida y continuar\nconst scanId = $('Webhook Trigger').item.json.body.scan_id;\nreturn [{\n  json: {\n    scan_id: scanId,\n    findings: [],\n    total_zap: 0,\n    error: 'ZAP falló o no disponible'\n  }\n}];\n"
+      },
+      "id": "zap-error-handler",
+      "name": "ZAP Error Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [6840, 520]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error handler para Ollama — continuar sin análisis LLM\nconst scanId = $('Webhook Trigger').item.json.body.scan_id;\nreturn [{\n  json: {\n    scan_id: scanId,\n    raw_prompt: $('Preparar Prompt LLM').item.json.full_prompt || '',\n    raw_response: 'Análisis LLM no disponible. Ollama no respondió.',\n    recommendations_json: [{ title: 'Error', details: 'El servicio de IA no estuvo disponible durante el análisis.' }],\n    model_used: 'N/A',\n    duration_ms: 0\n  }\n}];\n"
+      },
+      "id": "llm-error-handler",
+      "name": "LLM Error Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [8620, 520]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          { "node": "Respond Webhook", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Respond Webhook": {
+      "main": [
+        [
+          { "node": "Fase 1 — Iniciar", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fase 1 — Iniciar": {
+      "main": [
+        [
+          { "node": "Check Headers", "type": "main", "index": 0 },
+          { "node": "Check SSL", "type": "main", "index": 0 },
+          { "node": "Check Ports", "type": "main", "index": 0 },
+          { "node": "Check Cookies", "type": "main", "index": 0 },
+          { "node": "Check CORS", "type": "main", "index": 0 },
+          { "node": "Check Disclosure", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check Headers": {
+      "main": [
+        [
+          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check SSL": {
+      "main": [
+        [
+          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check Ports": {
+      "main": [
+        [
+          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check Cookies": {
+      "main": [
+        [
+          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check CORS": {
+      "main": [
+        [
+          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check Disclosure": {
+      "main": [
+        [
+          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Merge Passive Checks": {
+      "main": [
+        [
+          { "node": "Combinar Findings Pasivos", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Combinar Findings Pasivos": {
+      "main": [
+        [
+          { "node": "Guardar Findings Pasivos", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Guardar Findings Pasivos": {
+      "main": [
+        [
+          { "node": "Fase 1 — Completar", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fase 1 — Completar": {
+      "main": [
+        [
+          { "node": "Fase 2 — Iniciar testssl", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fase 2 — Iniciar testssl": {
+      "main": [
+        [
+          { "node": "Ejecutar testssl.sh", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Ejecutar testssl.sh": {
+      "main": [
+        [
+          { "node": "Parsear testssl", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parsear testssl": {
+      "main": [
+        [
+          { "node": "Guardar Findings testssl", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Guardar Findings testssl": {
+      "main": [
+        [
+          { "node": "Fase 2 — Completar", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fase 2 — Completar": {
+      "main": [
+        [
+          { "node": "Fase 3 — Iniciar Nuclei", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fase 3 — Iniciar Nuclei": {
+      "main": [
+        [
+          { "node": "Ejecutar Nuclei", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Ejecutar Nuclei": {
+      "main": [
+        [
+          { "node": "Parsear Nuclei", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parsear Nuclei": {
+      "main": [
+        [
+          { "node": "Guardar Findings Nuclei", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Guardar Findings Nuclei": {
+      "main": [
+        [
+          { "node": "Fase 3 — Completar", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fase 3 — Completar": {
+      "main": [
+        [
+          { "node": "Fase 4 — Iniciar ZAP", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fase 4 — Iniciar ZAP": {
+      "main": [
+        [
+          { "node": "ZAP Spider — Iniciar", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "ZAP Spider — Iniciar": {
+      "main": [
+        [
+          { "node": "Obtener Spider ID", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Obtener Spider ID": {
+      "main": [
+        [
+          { "node": "Esperar Spider", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Esperar Spider": {
+      "main": [
+        [
+          { "node": "ZAP Spider — Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "ZAP Spider — Status": {
+      "main": [
+        [
+          { "node": "¿Spider Listo?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "¿Spider Listo?": {
+      "main": [
+        [
+          { "node": "ZAP Active Scan — Iniciar", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Esperar Spider", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "ZAP Active Scan — Iniciar": {
+      "main": [
+        [
+          { "node": "Obtener AScan ID", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Obtener AScan ID": {
+      "main": [
+        [
+          { "node": "Esperar Active Scan", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Esperar Active Scan": {
+      "main": [
+        [
+          { "node": "ZAP Active Scan — Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "ZAP Active Scan — Status": {
+      "main": [
+        [
+          { "node": "¿Active Scan Listo?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "¿Active Scan Listo?": {
+      "main": [
+        [
+          { "node": "ZAP — Obtener Alertas", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Esperar Active Scan", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "ZAP — Obtener Alertas": {
+      "main": [
+        [
+          { "node": "Parsear ZAP Alertas", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parsear ZAP Alertas": {
+      "main": [
+        [
+          { "node": "Guardar Findings ZAP", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Guardar Findings ZAP": {
+      "main": [
+        [
+          { "node": "Fase 4 — Completar", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fase 4 — Completar": {
+      "main": [
+        [
+          { "node": "Fase 5 — Iniciar Scoring + LLM", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fase 5 — Iniciar Scoring + LLM": {
+      "main": [
+        [
+          { "node": "Calcular Score", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Calcular Score": {
+      "main": [
+        [
+          { "node": "Preparar Prompt LLM", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Preparar Prompt LLM": {
+      "main": [
+        [
+          { "node": "Ollama — Análisis LLM", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Ollama — Análisis LLM": {
+      "main": [
+        [
+          { "node": "Parsear Respuesta LLM", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Parsear Respuesta LLM": {
+      "main": [
+        [
+          { "node": "Guardar Análisis LLM", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Guardar Análisis LLM": {
+      "main": [
+        [
+          { "node": "Fase 5 — Completar", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fase 5 — Completar": {
+      "main": [
+        [
+          { "node": "Marcar Scan Completo", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    { "name": "vuln-scanner" },
+    { "name": "pipeline" }
+  ],
+  "triggerCount": 1,
+  "pinData": {}
+}

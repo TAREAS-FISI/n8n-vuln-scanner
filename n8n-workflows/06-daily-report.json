@@ -1,0 +1,99 @@
+{
+  "name": "06 — Reporte Diario Automatizado",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Cron — 8am diario",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/scans",
+        "options": { "timeout": 15000 }
+      },
+      "id": "get-recent-scans",
+      "name": "Obtener Escaneos Recientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generar resumen del día para Ollama\nconst scans = $input.first().json;\n\nif (!Array.isArray(scans) || scans.length === 0) {\n  return [{ json: { skip: true, message: 'No hay escaneos recientes para reportar.' } }];\n}\n\n// Filtrar escaneos de las últimas 24 horas\nconst now = new Date();\nconst oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);\n\nconst recentScans = scans.filter(s => {\n  const created = new Date(s.created_at);\n  return created >= oneDayAgo;\n});\n\nif (recentScans.length === 0) {\n  return [{ json: { skip: true, message: 'No hay escaneos en las últimas 24 horas.' } }];\n}\n\n// Estadísticas\nconst totalScans = recentScans.length;\nconst completedScans = recentScans.filter(s => s.status === 'completed').length;\nconst avgScore = recentScans\n  .filter(s => s.global_score !== null)\n  .reduce((acc, s) => acc + s.global_score, 0) / (completedScans || 1);\nconst totalFindings = recentScans.reduce((acc, s) => acc + (s.total_findings || 0), 0);\nconst worstScan = recentScans\n  .filter(s => s.global_score !== null)\n  .sort((a, b) => a.global_score - b.global_score)[0];\n\nconst summary = {\n  period: `${oneDayAgo.toISOString().split('T')[0]} - ${now.toISOString().split('T')[0]}`,\n  total_scans: totalScans,\n  completed_scans: completedScans,\n  avg_score: Math.round(avgScore * 10) / 10,\n  total_findings: totalFindings,\n  worst_target: worstScan ? { url: worstScan.target_url, score: worstScan.global_score } : null,\n  scans: recentScans.map(s => ({\n    url: s.target_url,\n    score: s.global_score,\n    findings: s.total_findings,\n    status: s.status\n  }))\n};\n\nconst prompt = `Genera un reporte diario de seguridad basado en los siguientes escaneos realizados en las últimas 24 horas.\n\nEstadísticas:\n- Período: ${summary.period}\n- Escaneos realizados: ${summary.total_scans}\n- Escaneos completados: ${summary.completed_scans}\n- Score promedio: ${summary.avg_score}/100\n- Total de hallazgos: ${summary.total_findings}\n${worstScan ? '- Peor target: ' + worstScan.target_url + ' (score: ' + worstScan.global_score + ')' : ''}\n\nDetalle de escaneos:\n${JSON.stringify(summary.scans, null, 2)}\n\nGenera:\n1. Resumen ejecutivo (3 líneas)\n2. Tendencias observadas\n3. Top 3 recomendaciones prioritarias\n4. Score general del día\n\nResponde en español, formato Markdown.`;\n\nreturn [{ json: { skip: false, summary, prompt } }];\n"
+      },
+      "id": "prepare-summary",
+      "name": "Preparar Resumen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-data",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": "false",
+              "operator": { "type": "boolean", "operation": "false" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-data",
+      "name": "¿Hay Datos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'llama3.2:3b', messages: [ { role: 'system', content: 'Eres un analista de ciberseguridad que genera reportes diarios concisos y accionables. Responde siempre en español.' }, { role: 'user', content: $json.prompt } ], stream: false, options: { temperature: 0.3, num_predict: 1024 } }) }}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "ollama-report",
+      "name": "Ollama — Reporte Diario",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1160, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formatear reporte final\nconst response = $input.first().json;\nconst report = response.message?.content || 'Reporte no disponible.';\nconst summary = $('Preparar Resumen').item.json.summary;\n\nreturn [{\n  json: {\n    report_type: 'daily',\n    period: summary.period,\n    stats: {\n      total_scans: summary.total_scans,\n      avg_score: summary.avg_score,\n      total_findings: summary.total_findings\n    },\n    llm_report: report,\n    generated_at: new Date().toISOString()\n  }\n}];\n"
+      },
+      "id": "format-report",
+      "name": "Formatear Reporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1380, 220]
+    }
+  ],
+  "connections": {
+    "Cron — 8am diario": { "main": [[{ "node": "Obtener Escaneos Recientes", "type": "main", "index": 0 }]] },
+    "Obtener Escaneos Recientes": { "main": [[{ "node": "Preparar Resumen", "type": "main", "index": 0 }]] },
+    "Preparar Resumen": { "main": [[{ "node": "¿Hay Datos?", "type": "main", "index": 0 }]] },
+    "¿Hay Datos?": { "main": [[{ "node": "Ollama — Reporte Diario", "type": "main", "index": 0 }], []] },
+    "Ollama — Reporte Diario": { "main": [[{ "node": "Formatear Reporte", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true },
+  "tags": [{ "name": "vuln-scanner" }, { "name": "reporte" }]
+}

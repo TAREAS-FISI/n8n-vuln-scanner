@@ -62,12 +62,21 @@ services:
       - N8N_DIAGNOSTICS_ENABLED=false
       - N8N_HIRING_BANNER_ENABLED=false
       - GENERIC_TIMEZONE=America/Lima
+      - N8N_SECURE_COOKIE=false
+      - N8N_RUNNERS_ENABLED=true
+      - EXECUTIONS_PROCESS=main
+      - N8N_PERSISTED_BINARY_DATA_TTL=72
     volumes:
       - n8n-data:/home/node/.n8n
       - /var/run/docker.sock:/var/run/docker.sock
       - scanner-shared:/tmp/scanner
+      - ./n8n-workflows:/home/node/workflows:ro
+    user: root
     networks:
       - scanner-net
+    depends_on:
+      - backend
+      - postgres
     restart: unless-stopped
 
   # ─── 4. POSTGRESQL ─────────────────────────────────────────

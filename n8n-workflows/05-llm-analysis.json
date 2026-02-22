@@ -1,0 +1,57 @@
+{
+  "name": "05 — LLM Analysis (Sub-workflow)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Recibir scan_id, url, score, y findings summary\nconst data = $input.first().json;\nconst scanId = data.scan_id;\nconst url = data.url;\nconst score = data.score || 0;\nconst totalFindings = data.total_findings || 0;\nconst breakdown = data.breakdown || {};\n\n// Construir resumen de findings para el prompt\nlet findingsSummary = '';\nfor (const [source, info] of Object.entries(breakdown)) {\n  if (typeof info === 'object' && info.by_severity) {\n    findingsSummary += `\\n[${source}] ${info.findings_count} hallazgos: `;\n    findingsSummary += Object.entries(info.by_severity)\n      .map(([sev, count]) => `${count} ${sev}`)\n      .join(', ');\n  }\n}\n\nconst systemPrompt = `Eres un experto en ciberseguridad web con 15 años de experiencia.\nAnaliza los hallazgos de un escaneo de seguridad de la URL proporcionada.\n\nINSTRUCCIONES:\n1. Para cada vulnerabilidad crítica y alta, explica:\n   - Qué riesgo representa EN CONTEXTO (no genérico)\n   - Cómo podría ser explotada (escenario realista)\n   - Pasos de remediación con código/configuración\n2. Identifica CORRELACIONES entre hallazgos que aumenten el riesgo combinado\n3. Genera un RESUMEN EJECUTIVO de 3 líneas al inicio\n4. Ordena las recomendaciones de MAYOR a MENOR impacto\n5. Responde SIEMPRE en español\n6. Usa formato Markdown para mejor legibilidad`;\n\nconst userPrompt = `URL escaneada: ${url}\nScore de seguridad: ${score}/100\nTotal de hallazgos: ${totalFindings}\n\nDesglose por fuente:${findingsSummary}\n\nDesglose completo:\n${JSON.stringify(breakdown, null, 2)}`;\n\nreturn [{\n  json: {\n    scan_id: scanId,\n    url,\n    score,\n    system_prompt: systemPrompt,\n    user_prompt: userPrompt,\n    full_prompt: `${systemPrompt}\\n\\n${userPrompt}`\n  }\n}];\n"
+      },
+      "id": "prepare-prompt",
+      "name": "Preparar Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'llama3.2:3b', messages: [ { role: 'system', content: $json.system_prompt }, { role: 'user', content: $json.user_prompt } ], stream: false, options: { temperature: 0.3, num_predict: 2048 } }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "ollama-chat",
+      "name": "Ollama Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear respuesta de Ollama\nconst scanId = $('Preparar Prompt').item.json.scan_id;\nconst response = $input.first().json;\nconst content = response.message?.content || 'Análisis no disponible.';\nconst model = response.model || 'llama3.2:3b';\nconst durationMs = Math.round((response.total_duration || 0) / 1000000);\n\n// Extraer recomendaciones estructuradas\nlet recommendations = [];\ntry {\n  const lines = content.split('\\n');\n  let current = null;\n  for (const line of lines) {\n    const match = line.match(/^\\d+\\.\\s+(.+)/);\n    if (match) {\n      if (current) recommendations.push(current);\n      current = { title: match[1].trim(), details: '' };\n    } else if (current && line.trim()) {\n      current.details += line.trim() + ' ';\n    }\n  }\n  if (current) recommendations.push(current);\n} catch (e) {\n  recommendations = [{ title: 'Análisis completo', details: content }];\n}\n\nreturn [{\n  json: {\n    scan_id: scanId,\n    raw_prompt: $('Preparar Prompt').item.json.full_prompt,\n    raw_response: content,\n    recommendations_json: recommendations,\n    model_used: model,\n    duration_ms: durationMs\n  }\n}];\n"
+      },
+      "id": "parse-response",
+      "name": "Parsear Respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": { "main": [[{ "node": "Preparar Prompt", "type": "main", "index": 0 }]] },
+    "Preparar Prompt": { "main": [[{ "node": "Ollama Chat", "type": "main", "index": 0 }]] },
+    "Ollama Chat": { "main": [[{ "node": "Parsear Respuesta", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "vuln-scanner" }, { "name": "llm" }]
+}

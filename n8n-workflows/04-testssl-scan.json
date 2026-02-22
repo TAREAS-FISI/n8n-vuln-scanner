@@ -1,0 +1,50 @@
+{
+  "name": "04 — testssl Scan (Sub-workflow)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const url = $input.first().json.url;\nconst scanId = $input.first().json.scan_id;\n\n// Extraer hostname del URL para testssl\nlet hostname = url;\ntry {\n  const u = new URL(url);\n  hostname = u.hostname;\n  if (u.port) hostname += ':' + u.port;\n  else if (u.protocol === 'https:') hostname += ':443';\n  else hostname += ':443'; // testssl necesita puerto\n} catch(e) {\n  hostname = url.replace(/^https?:\\/\\//, '').split('/')[0];\n}\n\nreturn [{ json: { url, scanId, hostname } }];\n"
+      },
+      "id": "extract-params",
+      "name": "Extraer Parámetros",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "command": "=docker exec testssl /bin/sh -c \"testssl.sh --jsonfile /tmp/scanner/testssl_{{ $json.scanId }}.json --quiet --fast {{ $json.hostname }} 2>/dev/null; cat /tmp/scanner/testssl_{{ $json.scanId }}.json 2>/dev/null || echo '[]'\""
+      },
+      "id": "run-testssl",
+      "name": "Ejecutar testssl.sh",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear JSON de testssl.sh → findings estándar\nconst scanId = $('Extraer Parámetros').item.json.scanId;\nconst rawOutput = $input.first().json.stdout || '[]';\nlet results = [];\n\ntry {\n  results = JSON.parse(rawOutput);\n  if (!Array.isArray(results)) results = [results];\n} catch (e) {\n  try {\n    results = rawOutput.split('\\n').filter(l => l.trim()).map(l => JSON.parse(l));\n  } catch (e2) { results = []; }\n}\n\nconst findings = [];\nconst sevMap = { 'CRITICAL': 'Critical', 'HIGH': 'High', 'MEDIUM': 'Medium', 'LOW': 'Low', 'OK': 'Info', 'INFO': 'Info', 'WARN': 'Medium' };\nconst cvssMap = { 'Critical': 9.0, 'High': 7.5, 'Medium': 5.0, 'Low': 3.0, 'Info': 0.0 };\n\nfor (const r of results) {\n  if (!r || !r.id) continue;\n  const severity = sevMap[r.severity] || 'Info';\n  if (severity === 'Info' && !r.id.includes('vulnerability')) continue;\n  \n  findings.push({\n    source: 'testssl',\n    category: 'SSL/TLS',\n    title: `[testssl] ${r.id}: ${(r.finding || '').substring(0, 200)}`,\n    severity,\n    cvss_score: cvssMap[severity] || 0.0,\n    description: `Test: ${r.id}\\nResultado: ${r.finding || 'N/A'}`,\n    remediation: 'Revisar configuración SSL/TLS según Mozilla SSL Configuration Generator.',\n    raw_data: r\n  });\n}\n\nreturn [{ json: { findings, total_testssl: findings.length, scan_id: scanId } }];\n"
+      },
+      "id": "parse-testssl",
+      "name": "Parsear testssl",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": { "main": [[{ "node": "Extraer Parámetros", "type": "main", "index": 0 }]] },
+    "Extraer Parámetros": { "main": [[{ "node": "Ejecutar testssl.sh", "type": "main", "index": 0 }]] },
+    "Ejecutar testssl.sh": { "main": [[{ "node": "Parsear testssl", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "vuln-scanner" }, { "name": "testssl" }]
+}
