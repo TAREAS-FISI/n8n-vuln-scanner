@@ -1,0 +1,204 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════════
+# n8n-vuln-scanner — Docker Compose (10 servicios)
+# ══════════════════════════════════════════════════════════════
+
+services:
+
+  # ─── 1. FRONTEND (Next.js) ─────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - scanner-net
+    restart: unless-stopped
+
+  # ─── 2. BACKEND (FastAPI) ──────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/scan
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL}
+      - ZAP_URL=http://zap:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - scanner-net
+    restart: unless-stopped
+
+  # ─── 3. N8N (Orquestador) ─────────────────────────────────
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_HIRING_BANNER_ENABLED=false
+      - GENERIC_TIMEZONE=America/Lima
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - /var/run/docker.sock:/var/run/docker.sock
+      - scanner-shared:/tmp/scanner
+    networks:
+      - scanner-net
+    restart: unless-stopped
+
+  # ─── 4. POSTGRESQL ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - scanner-net
+    restart: unless-stopped
+
+  # ─── 5. OWASP ZAP (DAST Scanner) ──────────────────────────
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    container_name: zap
+    ports:
+      - "8080:8080"
+    command: >
+      zap.sh -daemon -port 8080 -host 0.0.0.0
+      -config api.disablekey=true
+      -config api.addrs.addr.name=.*
+      -config api.addrs.addr.regex=true
+    volumes:
+      - zap-data:/zap/wrk
+    networks:
+      - scanner-net
+    restart: unless-stopped
+
+  # ─── 6. OLLAMA (LLM Local) ────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - scanner-net
+    restart: unless-stopped
+
+  # ─── 7. GRAFANA (Dashboards) ───────────────────────────────
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/security-overview.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - scanner-net
+    restart: unless-stopped
+
+  # ─── 8. DVWA (Target Vulnerable) ───────────────────────────
+  dvwa:
+    image: vulnerables/web-dvwa
+    container_name: dvwa
+    ports:
+      - "8081:80"
+    environment:
+      - DVWA_SECURITY_LEVEL=${DVWA_SECURITY_LEVEL}
+    networks:
+      - scanner-net
+    restart: unless-stopped
+
+  # ─── 9. NUCLEI (CVE Scanner — one-shot via n8n) ───────────
+  # Nuclei se ejecuta on-demand desde n8n via docker exec/run.
+  # Se incluye para pre-descargar la imagen.
+  nuclei:
+    image: projectdiscovery/nuclei:latest
+    container_name: nuclei
+    entrypoint: ["tail", "-f", "/dev/null"]
+    volumes:
+      - nuclei-templates:/root/nuclei-templates
+      - scanner-shared:/tmp/scanner
+    networks:
+      - scanner-net
+    restart: unless-stopped
+
+  # ─── 10. TESTSSL (SSL/TLS Audit — one-shot via n8n) ───────
+  # testssl.sh se ejecuta on-demand desde n8n via docker exec/run.
+  # Se incluye para pre-descargar la imagen.
+  testssl:
+    image: drwetter/testssl.sh:latest
+    container_name: testssl
+    entrypoint: ["tail", "-f", "/dev/null"]
+    volumes:
+      - scanner-shared:/tmp/scanner
+    networks:
+      - scanner-net
+    restart: unless-stopped
+
+# ─── REDES ────────────────────────────────────────────────────
+networks:
+  scanner-net:
+    driver: bridge
+
+# ─── VOLÚMENES ────────────────────────────────────────────────
+volumes:
+  postgres-data:
+  n8n-data:
+  ollama-data:
+  grafana-data:
+  zap-data:
+  nuclei-templates:
+  scanner-shared:
