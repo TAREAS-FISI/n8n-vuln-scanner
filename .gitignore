@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker volumes (persistent data)
+docker-volumes/
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# Python
+backend/*.egg-info/
+backend/dist/
+backend/build/
+
+# Logs
+*.log
+
+# Temporary scan outputs
+/tmp/testssl/
+/tmp/nuclei/
+
+# Compiled docs
+docs/informe.pdf
+docs/presentacion.pptx
