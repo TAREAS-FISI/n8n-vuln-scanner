@@ -1,8 +1,17 @@
 """
 n8n Vulnerability Scanner — FastAPI Backend
 """
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.routers import checks, health, scans
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 app = FastAPI(
     title="n8n Vulnerability Scanner API",
@@ -19,7 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "service": "vuln-scanner-api"}
+# Registrar routers
+app.include_router(health.router)
+app.include_router(checks.router)
+app.include_router(scans.router)
