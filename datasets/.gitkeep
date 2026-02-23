@@ -1,8 +1,0 @@
-# Datasets y Escenarios de Prueba
-
-Este directorio contendrá los resultados de los escaneos de prueba:
-
-- `scan_results_normal.json` — DVWA con security=impossible
-- `scan_results_vulnerable.json` — DVWA con security=low
-- `scan_results_error.json` — URL inválida
-- `test_scenarios.md` — Documentación de escenarios
