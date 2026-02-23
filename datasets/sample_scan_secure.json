@@ -1,0 +1,50 @@
+{
+  "description": "Resultado simulado — target seguro (tipo github.com)",
+  "target_url": "https://github.com",
+  "status": "completed",
+  "global_score": 88.5,
+  "total_findings": 5,
+  "findings": [
+    {
+      "source": "passive_headers",
+      "category": "Missing Security Header",
+      "title": "Header 'Permissions-Policy' no encontrado",
+      "severity": "Low",
+      "cvss_score": 2.6,
+      "description": "El header Permissions-Policy no está presente."
+    },
+    {
+      "source": "passive_headers",
+      "category": "Missing Security Header",
+      "title": "Header 'Cross-Origin-Embedder-Policy' no encontrado",
+      "severity": "Low",
+      "cvss_score": 2.6,
+      "description": "COEP no definido."
+    },
+    {
+      "source": "passive_tech",
+      "category": "Technology Detection",
+      "title": "Tecnologías detectadas: 3",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "Tecnologías: Ruby on Rails, Nginx, React",
+      "raw_data": { "technologies": ["Nginx", "React", "Ruby on Rails"] }
+    },
+    {
+      "source": "passive_ports",
+      "category": "Open Port",
+      "title": "Puerto 443 (HTTPS) abierto",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "Puerto estándar HTTPS (informativo)."
+    },
+    {
+      "source": "passive_ports",
+      "category": "Open Port",
+      "title": "Puerto 80 (HTTP) abierto",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "Puerto estándar HTTP (informativo)."
+    }
+  ]
+}

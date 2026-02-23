@@ -1,0 +1,156 @@
+{
+  "description": "Resultado simulado — target vulnerable (tipo DVWA)",
+  "target_url": "http://dvwa:80",
+  "status": "completed",
+  "global_score": 22.5,
+  "total_findings": 18,
+  "findings": [
+    {
+      "source": "passive_headers",
+      "category": "Missing Security Header",
+      "title": "Header 'Strict-Transport-Security' no encontrado",
+      "severity": "High",
+      "cvss_score": 7.4,
+      "description": "El header HSTS no está presente. Permite ataques de downgrade.",
+      "remediation": "Agregar: Strict-Transport-Security: max-age=31536000; includeSubDomains; preload"
+    },
+    {
+      "source": "passive_headers",
+      "category": "Missing Security Header",
+      "title": "Header 'Content-Security-Policy' no encontrado",
+      "severity": "Medium",
+      "cvss_score": 5.3,
+      "description": "Sin CSP, el sitio es más vulnerable a ataques XSS."
+    },
+    {
+      "source": "passive_headers",
+      "category": "Missing Security Header",
+      "title": "Header 'X-Frame-Options' no encontrado",
+      "severity": "Medium",
+      "cvss_score": 4.3,
+      "description": "El sitio puede ser embebido en iframes maliciosos (clickjacking)."
+    },
+    {
+      "source": "passive_headers",
+      "category": "Missing Security Header",
+      "title": "Header 'X-Content-Type-Options' no encontrado",
+      "severity": "Low",
+      "cvss_score": 3.7,
+      "description": "Header nosniff no presente. Posible MIME sniffing."
+    },
+    {
+      "source": "passive_ssl",
+      "category": "No HTTPS",
+      "title": "El sitio no usa HTTPS",
+      "severity": "High",
+      "cvss_score": 7.4,
+      "description": "El sitio se sirve sobre HTTP sin cifrado.",
+      "remediation": "Configurar HTTPS con Let's Encrypt."
+    },
+    {
+      "source": "passive_cookies",
+      "category": "Cookie Missing Secure Flag",
+      "title": "Cookie 'PHPSESSID' sin flag Secure",
+      "severity": "Medium",
+      "cvss_score": 4.3,
+      "description": "La cookie de sesión no tiene el flag Secure."
+    },
+    {
+      "source": "passive_cookies",
+      "category": "Cookie Missing HttpOnly Flag",
+      "title": "Cookie 'PHPSESSID' sin flag HttpOnly",
+      "severity": "Medium",
+      "cvss_score": 4.3,
+      "description": "La cookie puede ser accedida por JavaScript."
+    },
+    {
+      "source": "passive_cookies",
+      "category": "Cookie Missing SameSite Flag",
+      "title": "Cookie 'PHPSESSID' sin flag SameSite",
+      "severity": "Low",
+      "cvss_score": 3.1,
+      "description": "Cookie vulnerable a CSRF."
+    },
+    {
+      "source": "passive_disclosure",
+      "category": "Information Disclosure",
+      "title": "phpinfo() accesible",
+      "severity": "Medium",
+      "cvss_score": 5.3,
+      "description": "phpinfo() expone configuración detallada del servidor."
+    },
+    {
+      "source": "passive_disclosure",
+      "category": "Information Disclosure",
+      "title": "robots.txt revela rutas sensibles",
+      "severity": "Info",
+      "cvss_score": 1.0,
+      "description": "robots.txt contiene Disallow para rutas: /admin, /config"
+    },
+    {
+      "source": "passive_tech",
+      "category": "Technology Detection",
+      "title": "Tecnologías detectadas: 4",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "Tecnologías: PHP, Apache/2.4, jQuery, MySQL",
+      "raw_data": { "technologies": ["Apache/2.4", "jQuery", "MySQL", "PHP"] }
+    },
+    {
+      "source": "passive_ports",
+      "category": "Dangerous Open Port",
+      "title": "Puerto 3306 (MySQL) abierto",
+      "severity": "High",
+      "cvss_score": 7.5,
+      "description": "MySQL está abierto y accesible públicamente."
+    },
+    {
+      "source": "passive_ports",
+      "category": "Open Port",
+      "title": "Puerto 80 (HTTP) abierto",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "Puerto estándar HTTP (informativo)."
+    },
+    {
+      "source": "zap",
+      "category": "SQL Injection",
+      "title": "SQL Injection detectado en /vulnerabilities/sqli/",
+      "severity": "Critical",
+      "cvss_score": 9.8,
+      "description": "Inyección SQL en parámetro 'id'."
+    },
+    {
+      "source": "zap",
+      "category": "XSS Reflected",
+      "title": "XSS Reflected en /vulnerabilities/xss_r/",
+      "severity": "High",
+      "cvss_score": 6.1,
+      "description": "Cross-Site Scripting reflejado detectado."
+    },
+    {
+      "source": "nuclei",
+      "category": "CVE-2021-41773",
+      "title": "Apache Path Traversal (CVE-2021-41773)",
+      "severity": "Critical",
+      "cvss_score": 9.8,
+      "description": "Vulnerabilidad de path traversal en Apache 2.4.49."
+    },
+    {
+      "source": "nuclei",
+      "category": "Exposed Admin Panel",
+      "title": "Panel de administración accesible sin autenticación",
+      "severity": "High",
+      "cvss_score": 7.5,
+      "description": "Panel admin en /setup.php sin autenticación requerida."
+    },
+    {
+      "source": "passive_cors",
+      "category": "CORS Misconfiguration",
+      "title": "CORS permite cualquier origin (*)",
+      "severity": "Medium",
+      "cvss_score": 5.4,
+      "description": "Access-Control-Allow-Origin: * detectado."
+    }
+  ]
+}

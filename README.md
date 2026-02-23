@@ -171,6 +171,53 @@ docker exec -it postgres psql -U scanner -d vulnscanner
 
 ---
 
+## Testing y Datasets
+
+La carpeta `datasets/` contiene escenarios de prueba y resultados simulados:
+
+| Archivo | Descripción |
+|---|---|
+| `test_scenarios.md` | 6 escenarios de prueba con targets de distinta seguridad |
+| `sample_scan_vulnerable.json` | Resultado simulado de un target vulnerable (DVWA) — score ~22 |
+| `sample_scan_secure.json` | Resultado simulado de un target seguro (github.com) — score ~88 |
+| `sample_scan_error.json` | Resultado simulado cuando el target no existe |
+
+### Quick Test
+
+```bash
+# 1. Verificar que el backend responde y la DB está conectada
+curl http://localhost:8000/health
+
+# 2. Ejecutar un check individual (no necesita n8n)
+curl -X POST http://localhost:8000/check/headers \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://github.com"}'
+
+# 3. Ejecutar un scan completo (requiere n8n y todos los servicios)
+curl -X POST http://localhost:8000/scan \
+  -H 'Content-Type: application/json' \
+  -d '{"target_url": "http://dvwa:80"}'
+```
+
+---
+
+## Grafana Dashboard
+
+El dashboard de Grafana se provisiona automáticamente con **10 paneles**:
+
+1. **Gauge** — Score promedio de seguridad
+2. **Pie Chart** — Distribución de findings por severidad
+3. **Bar Chart** — Top 10 vulnerabilidades más frecuentes
+4. **Time Series** — Scores de seguridad en el tiempo
+5. **Tabla** — Últimos 20 escaneos con estado y score
+6. **Stat** — Total escaneos / Total findings / Promedio findings/scan
+7. **Bar Chart** — Findings por fuente de detección
+8. **Stacked Bar** — Severidad por escaneo (últimos 10)
+
+Acceder a Grafana: http://localhost:3001 (`admin` / `admin`)
+
+---
+
 ## Nota sobre GPU
 
 Si **no tienes GPU NVIDIA**, edita `docker-compose.yml` y comenta la sección `deploy` del servicio `ollama`:

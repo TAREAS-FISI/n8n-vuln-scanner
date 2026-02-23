@@ -184,7 +184,8 @@ async def check_headers(url: str) -> CheckResult:
                     )
                 )
 
-    except httpx.ConnectError:
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        logger.warning("Header check — conexión fallida para %s: %s", url, e)
         findings.append(
             FindingInput(
                 source="passive_headers",
@@ -192,11 +193,12 @@ async def check_headers(url: str) -> CheckResult:
                 title="No se pudo conectar al target",
                 severity="Info",
                 cvss_score=0.0,
-                description=f"No se pudo establecer conexión con {url}",
+                description=f"No se pudo establecer conexión con {url}: {type(e).__name__}",
                 remediation="Verificar que la URL es correcta y el servidor está activo.",
             )
         )
     except Exception as e:
+        logger.error("Header check — error inesperado para %s: %s", url, e, exc_info=True)
         findings.append(
             FindingInput(
                 source="passive_headers",

@@ -1,12 +1,15 @@
 """
 Tech Detector — Detecta tecnologías desde headers, cookies y meta tags.
 """
+import logging
 import re
 import time
 
 import httpx
 
 from app.models.schemas import CheckResult, FindingInput
+
+logger = logging.getLogger(__name__)
 
 # Cookies conocidas → tecnología
 COOKIE_TECH_MAP = {
@@ -112,7 +115,8 @@ async def detect_technologies(url: str) -> CheckResult:
                 )
             )
 
-    except httpx.ConnectError:
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        logger.warning("Tech detection — conexión fallida para %s: %s", url, e)
         findings.append(
             FindingInput(
                 source="passive_tech",
@@ -120,10 +124,11 @@ async def detect_technologies(url: str) -> CheckResult:
                 title="No se pudo conectar al target",
                 severity="Info",
                 cvss_score=0.0,
-                description=f"No se pudo establecer conexión con {url}",
+                description=f"No se pudo establecer conexión con {url}: {type(e).__name__}",
             )
         )
     except Exception as e:
+        logger.error("Tech detection — error inesperado para %s: %s", url, e, exc_info=True)
         findings.append(
             FindingInput(
                 source="passive_tech",

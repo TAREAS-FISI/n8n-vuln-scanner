@@ -2,12 +2,15 @@
 Port Scanner — Escanea los top 20 puertos peligrosos con socket.
 """
 import asyncio
+import logging
 import socket
 import time
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
 from app.models.schemas import CheckResult, FindingInput
+
+logger = logging.getLogger(__name__)
 
 # Puertos objetivo con servicio asociado y nivel de riesgo
 TARGET_PORTS = {
@@ -61,6 +64,7 @@ async def check_ports(url: str) -> CheckResult:
     try:
         socket.getaddrinfo(host, None)
     except socket.gaierror:
+        logger.warning("Port scan — DNS resolution failed for %s", host)
         findings.append(
             FindingInput(
                 source="passive_ports",
@@ -75,51 +79,65 @@ async def check_ports(url: str) -> CheckResult:
         elapsed = int((time.perf_counter() - start) * 1000)
         return CheckResult(findings=findings, duration_ms=elapsed, source="passive_ports")
 
-    # Escanear puertos en paralelo con ThreadPoolExecutor
-    loop = asyncio.get_event_loop()
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        tasks = [
-            loop.run_in_executor(executor, _scan_port, host, port)
-            for port in TARGET_PORTS
-        ]
-        results = await asyncio.gather(*tasks)
+    try:
+        # Escanear puertos en paralelo con ThreadPoolExecutor
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            tasks = [
+                loop.run_in_executor(executor, _scan_port, host, port)
+                for port in TARGET_PORTS
+            ]
+            results = await asyncio.gather(*tasks)
 
-    open_ports = []
-    for port, is_open in results:
-        if is_open:
-            info = TARGET_PORTS[port]
-            open_ports.append(port)
+        open_ports = []
+        for port, is_open in results:
+            if is_open:
+                info = TARGET_PORTS[port]
+                open_ports.append(port)
 
-            if info["risky"]:
-                findings.append(
-                    FindingInput(
-                        source="passive_ports",
-                        category="Dangerous Open Port",
-                        title=f"Puerto {port} ({info['service']}) abierto",
-                        severity=info["severity"],
-                        cvss_score=info["cvss"],
-                        description=(
-                            f"El puerto {port} ({info['service']}) está abierto y accesible. "
-                            f"Este servicio puede ser objetivo de ataques si no está correctamente asegurado."
-                        ),
-                        remediation=(
-                            f"Si no es necesario, cerrar el puerto {port} con firewall. "
-                            f"Si es necesario, asegurar que {info['service']} requiere autenticación "
-                            f"y está actualizado. Restringir acceso por IP con iptables/firewalld."
-                        ),
+                if info["risky"]:
+                    findings.append(
+                        FindingInput(
+                            source="passive_ports",
+                            category="Dangerous Open Port",
+                            title=f"Puerto {port} ({info['service']}) abierto",
+                            severity=info["severity"],
+                            cvss_score=info["cvss"],
+                            description=(
+                                f"El puerto {port} ({info['service']}) está abierto y accesible. "
+                                f"Este servicio puede ser objetivo de ataques si no está correctamente asegurado."
+                            ),
+                            remediation=(
+                                f"Si no es necesario, cerrar el puerto {port} con firewall. "
+                                f"Si es necesario, asegurar que {info['service']} requiere autenticación "
+                                f"y está actualizado. Restringir acceso por IP con iptables/firewalld."
+                            ),
+                        )
                     )
-                )
-            else:
-                findings.append(
-                    FindingInput(
-                        source="passive_ports",
-                        category="Open Port",
-                        title=f"Puerto {port} ({info['service']}) abierto",
-                        severity="Info",
-                        cvss_score=0.0,
-                        description=f"El puerto {port} ({info['service']}) está abierto (informativo).",
+                else:
+                    findings.append(
+                        FindingInput(
+                            source="passive_ports",
+                            category="Open Port",
+                            title=f"Puerto {port} ({info['service']}) abierto",
+                            severity="Info",
+                            cvss_score=0.0,
+                            description=f"El puerto {port} ({info['service']}) está abierto (informativo).",
+                        )
                     )
-                )
+
+    except Exception as e:
+        logger.error("Port scan — error inesperado para %s: %s", url, e, exc_info=True)
+        findings.append(
+            FindingInput(
+                source="passive_ports",
+                category="Scan Error",
+                title=f"Error al escanear puertos: {type(e).__name__}",
+                severity="Info",
+                cvss_score=0.0,
+                description=str(e),
+            )
+        )
 
     elapsed = int((time.perf_counter() - start) * 1000)
     return CheckResult(findings=findings, duration_ms=elapsed, source="passive_ports")

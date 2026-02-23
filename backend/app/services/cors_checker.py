@@ -1,12 +1,15 @@
 """
 CORS Checker — Verifica configuración de CORS (wildcard, reflected origin, credentials).
 """
+import logging
 import time
 from urllib.parse import urlparse
 
 import httpx
 
 from app.models.schemas import CheckResult, FindingInput
+
+logger = logging.getLogger(__name__)
 
 EVIL_ORIGINS = [
     "https://evil.com",
@@ -115,7 +118,8 @@ async def check_cors(url: str) -> CheckResult:
                 except Exception:
                     continue
 
-    except httpx.ConnectError:
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        logger.warning("CORS check — conexión fallida para %s: %s", url, e)
         findings.append(
             FindingInput(
                 source="passive_cors",
@@ -123,10 +127,11 @@ async def check_cors(url: str) -> CheckResult:
                 title="No se pudo conectar al target",
                 severity="Info",
                 cvss_score=0.0,
-                description=f"No se pudo establecer conexión con {url}",
+                description=f"No se pudo establecer conexión con {url}: {type(e).__name__}",
             )
         )
     except Exception as e:
+        logger.error("CORS check — error inesperado para %s: %s", url, e, exc_info=True)
         findings.append(
             FindingInput(
                 source="passive_cors",

@@ -1,7 +1,5 @@
 {
-  "annotations": {
-    "list": []
-  },
+  "annotations": { "list": [] },
   "description": "Panel de seguridad — n8n Vulnerability Scanner",
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -11,7 +9,7 @@
   "liveNow": false,
   "panels": [
     {
-      "datasource": { "type": "postgres", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "postgres", "uid": "ds-postgres" },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -32,19 +30,16 @@
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
       "id": 1,
       "options": {
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "showThresholdLabels": false,
-        "showThresholdMarkers": true
+        "showThresholdMarkers": true,
+        "orientation": "auto"
       },
       "title": "Score Promedio de Seguridad",
       "type": "gauge",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ds-postgres" },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -54,11 +49,9 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "postgres", "uid": "ds-postgres" },
       "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" }
-        },
+        "defaults": { "color": { "mode": "palette-classic" } },
         "overrides": [
           { "matcher": { "id": "byName", "options": "Critical" }, "properties": [{ "id": "color", "value": { "fixedColor": "dark-red", "mode": "fixed" } }] },
           { "matcher": { "id": "byName", "options": "High" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
@@ -73,17 +66,13 @@
         "legend": { "displayMode": "list", "placement": "right" },
         "pieType": "donut",
         "tooltip": { "mode": "single" },
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": true
-        }
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }
       },
       "title": "Findings por Severidad",
       "type": "piechart",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ds-postgres" },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -93,24 +82,31 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "postgres", "uid": "ds-postgres" },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" }
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisCenteredZero": false, "fillOpacity": 80, "gradientMode": "none", "showValue": "auto" }
         },
         "overrides": []
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "id": 3,
       "options": {
+        "barWidth": 0.8,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
         "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "single" }
+        "orientation": "horizontal",
+        "stacking": "none",
+        "tooltip": { "mode": "single" },
+        "xTickLabelRotation": 0
       },
       "title": "Top 10 Vulnerabilidades Más Frecuentes",
       "type": "barchart",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ds-postgres" },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -120,19 +116,12 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "postgres", "uid": "ds-postgres" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "pointSize": 5,
-            "showPoints": "auto"
-          },
-          "unit": "none",
-          "min": 0,
-          "max": 100
+          "custom": { "lineWidth": 2, "fillOpacity": 15, "pointSize": 6, "showPoints": "auto", "spanNulls": false, "lineInterpolation": "smooth" },
+          "unit": "none", "min": 0, "max": 100
         },
         "overrides": []
       },
@@ -146,7 +135,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ds-postgres" },
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
@@ -156,15 +145,42 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "postgres", "uid": "ds-postgres" },
       "fieldConfig": {
-        "defaults": {},
-        "overrides": []
+        "defaults": {
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Score" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [
+                { "color": "red", "value": null },
+                { "color": "orange", "value": 30 },
+                { "color": "yellow", "value": 50 },
+                { "color": "green", "value": 80 }
+              ]}}
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Estado" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": { "completed": { "text": "Completado", "color": "green" } } },
+                { "type": "value", "options": { "running": { "text": "En Progreso", "color": "blue" } } },
+                { "type": "value", "options": { "failed": { "text": "Error", "color": "red" } } },
+                { "type": "value", "options": { "pending": { "text": "Pendiente", "color": "text" } } }
+              ]}
+            ]
+          }
+        ]
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "id": 5,
       "options": {
-        "footer": { "enablePagination": true },
+        "footer": { "enablePagination": true, "countRows": false },
         "showHeader": true,
         "sortBy": [{ "displayName": "Fecha", "desc": true }]
       },
@@ -172,24 +188,19 @@
       "type": "table",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ds-postgres" },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT target_url AS \"URL\", global_score AS \"Score\", total_findings AS \"Findings\", status AS \"Estado\", created_at AS \"Fecha\" FROM scans ORDER BY created_at DESC LIMIT 20",
+          "rawSql": "SELECT target_url AS \"URL\", COALESCE(global_score::text, '—') AS \"Score\", total_findings AS \"Findings\", status AS \"Estado\", TO_CHAR(created_at, 'DD/MM/YYYY HH24:MI') AS \"Fecha\" FROM scans ORDER BY created_at DESC LIMIT 20",
           "refId": "A"
         }
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "postgres", "uid": "ds-postgres" },
       "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "blue", "value": null }]
-          }
-        },
+        "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } },
         "overrides": []
       },
       "gridPos": { "h": 4, "w": 8, "x": 0, "y": 16 },
@@ -197,13 +208,15 @@
       "options": {
         "colorMode": "background",
         "graphMode": "area",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        "justifyMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
       },
       "title": "Total Escaneos",
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ds-postgres" },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -213,14 +226,9 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "postgres", "uid": "ds-postgres" },
       "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "orange", "value": null }]
-          }
-        },
+        "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] } },
         "overrides": []
       },
       "gridPos": { "h": 4, "w": 8, "x": 8, "y": 16 },
@@ -228,13 +236,15 @@
       "options": {
         "colorMode": "background",
         "graphMode": "area",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        "justifyMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
       },
       "title": "Total Findings",
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ds-postgres" },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
@@ -244,13 +254,10 @@
       ]
     },
     {
-      "datasource": { "type": "postgres", "uid": "PBFA97CFB590B2093" },
+      "datasource": { "type": "postgres", "uid": "ds-postgres" },
       "fieldConfig": {
         "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "green", "value": null }]
-          },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
           "unit": "none",
           "decimals": 1
         },
@@ -261,17 +268,93 @@
       "options": {
         "colorMode": "background",
         "graphMode": "area",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+        "justifyMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
       },
       "title": "Promedio Findings/Scan",
       "type": "stat",
       "targets": [
         {
-          "datasource": { "type": "postgres" },
+          "datasource": { "type": "postgres", "uid": "ds-postgres" },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT COALESCE(AVG(total_findings), 0) AS promedio FROM scans WHERE status = 'completed'",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "ds-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisCenteredZero": false, "fillOpacity": 80, "gradientMode": "scheme", "showValue": "auto" }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 20 },
+      "id": 9,
+      "options": {
+        "barWidth": 0.8,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": { "displayMode": "list", "placement": "right" },
+        "orientation": "horizontal",
+        "stacking": "none",
+        "tooltip": { "mode": "single" },
+        "xTickLabelRotation": 0
+      },
+      "title": "Findings por Fuente de Detección",
+      "type": "barchart",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "ds-postgres" },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CASE source WHEN 'passive_headers' THEN 'Headers HTTP' WHEN 'passive_ssl' THEN 'SSL/TLS' WHEN 'passive_ports' THEN 'Puertos' WHEN 'passive_cookies' THEN 'Cookies' WHEN 'passive_cors' THEN 'CORS' WHEN 'passive_disclosure' THEN 'Info Disclosure' WHEN 'passive_tech' THEN 'Tecnologías' WHEN 'testssl' THEN 'testssl.sh' WHEN 'nuclei' THEN 'Nuclei' WHEN 'zap' THEN 'OWASP ZAP' ELSE source END AS fuente, COUNT(*) AS count FROM findings GROUP BY source ORDER BY count DESC",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "postgres", "uid": "ds-postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisCenteredZero": false, "fillOpacity": 60, "gradientMode": "scheme", "showValue": "auto", "stacking": { "mode": "normal" } }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Critical" }, "properties": [{ "id": "color", "value": { "fixedColor": "dark-red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "High" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Medium" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Low" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Info" }, "properties": [{ "id": "color", "value": { "fixedColor": "text", "mode": "fixed" } }] }
+        ]
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 20 },
+      "id": 10,
+      "options": {
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": { "displayMode": "list", "placement": "right" },
+        "orientation": "vertical",
+        "stacking": "normal",
+        "tooltip": { "mode": "multi" },
+        "xTickLabelRotation": -45
+      },
+      "title": "Severidad por Escaneo (Últimos 10)",
+      "type": "barchart",
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "ds-postgres" },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT s.target_url || ' (' || TO_CHAR(s.created_at, 'DD/MM') || ')' AS scan, COUNT(*) FILTER (WHERE f.severity = 'Critical') AS \"Critical\", COUNT(*) FILTER (WHERE f.severity = 'High') AS \"High\", COUNT(*) FILTER (WHERE f.severity = 'Medium') AS \"Medium\", COUNT(*) FILTER (WHERE f.severity = 'Low') AS \"Low\", COUNT(*) FILTER (WHERE f.severity = 'Info') AS \"Info\" FROM scans s LEFT JOIN findings f ON f.scan_id = s.id WHERE s.status = 'completed' GROUP BY s.id, s.target_url, s.created_at ORDER BY s.created_at DESC LIMIT 10",
           "refId": "A"
         }
       ]
@@ -281,10 +364,10 @@
   "schemaVersion": 39,
   "tags": ["security", "vulnerability-scanner"],
   "templating": { "list": [] },
-  "time": { "from": "now-7d", "to": "now" },
+  "time": { "from": "now-30d", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
   "title": "Security Overview — Vuln Scanner",
-  "uid": "vuln-scanner-main",
+  "uid": "security-overview",
   "version": 1
 }

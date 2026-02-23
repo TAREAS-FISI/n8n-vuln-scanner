@@ -1,12 +1,15 @@
 """
 Information Disclosure Checker — Busca archivos y rutas sensibles expuestas.
 """
+import logging
 import time
 from urllib.parse import urljoin
 
 import httpx
 
 from app.models.schemas import CheckResult, FindingInput
+
+logger = logging.getLogger(__name__)
 
 # Rutas sensibles a verificar con su severidad
 SENSITIVE_PATHS = [
@@ -237,6 +240,7 @@ async def check_info_disclosure(url: str) -> CheckResult:
                 pass
 
     except Exception as e:
+        logger.error("Info disclosure check — error inesperado para %s: %s", url, e, exc_info=True)
         findings.append(
             FindingInput(
                 source="passive_disclosure",

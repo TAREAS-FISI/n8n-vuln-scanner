@@ -1,6 +1,7 @@
 """
 SSL/TLS Checker — Verifica certificado, protocolo, cipher y expiración.
 """
+import logging
 import ssl
 import socket
 import time
@@ -8,6 +9,8 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from app.models.schemas import CheckResult, FindingInput
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_host_port(url: str) -> tuple[str, int]:
@@ -166,6 +169,7 @@ async def check_ssl(url: str) -> CheckResult:
                     break
 
     except socket.timeout:
+        logger.warning("SSL check — timeout para %s:%s", host, port)
         findings.append(
             FindingInput(
                 source="passive_ssl",
@@ -177,6 +181,7 @@ async def check_ssl(url: str) -> CheckResult:
             )
         )
     except ConnectionRefusedError:
+        logger.warning("SSL check — conexión rechazada para %s:%s", host, port)
         findings.append(
             FindingInput(
                 source="passive_ssl",
@@ -188,6 +193,7 @@ async def check_ssl(url: str) -> CheckResult:
             )
         )
     except Exception as e:
+        logger.error("SSL check — error inesperado para %s: %s", url, e, exc_info=True)
         findings.append(
             FindingInput(
                 source="passive_ssl",

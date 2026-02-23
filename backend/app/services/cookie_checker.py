@@ -1,11 +1,14 @@
 """
 Cookie Checker — Verifica flags de seguridad en cookies (Secure, HttpOnly, SameSite).
 """
+import logging
 import time
 
 import httpx
 
 from app.models.schemas import CheckResult, FindingInput
+
+logger = logging.getLogger(__name__)
 
 
 async def check_cookies(url: str) -> CheckResult:
@@ -87,7 +90,8 @@ async def check_cookies(url: str) -> CheckResult:
                     )
                 )
 
-    except httpx.ConnectError:
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        logger.warning("Cookie check — conexión fallida para %s: %s", url, e)
         findings.append(
             FindingInput(
                 source="passive_cookies",
@@ -95,10 +99,11 @@ async def check_cookies(url: str) -> CheckResult:
                 title="No se pudo conectar al target",
                 severity="Info",
                 cvss_score=0.0,
-                description=f"No se pudo establecer conexión con {url}",
+                description=f"No se pudo establecer conexión con {url}: {type(e).__name__}",
             )
         )
     except Exception as e:
+        logger.error("Cookie check — error inesperado para %s: %s", url, e, exc_info=True)
         findings.append(
             FindingInput(
                 source="passive_cookies",

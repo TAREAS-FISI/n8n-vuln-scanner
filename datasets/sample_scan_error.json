@@ -1,0 +1,65 @@
+{
+  "description": "Resultado simulado — target con errores de conexión",
+  "target_url": "https://noexiste.invalid",
+  "status": "completed",
+  "global_score": 100.0,
+  "total_findings": 7,
+  "findings": [
+    {
+      "source": "passive_headers",
+      "category": "Connection Error",
+      "title": "No se pudo conectar al target",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "No se pudo establecer conexión con https://noexiste.invalid: ConnectError"
+    },
+    {
+      "source": "passive_ssl",
+      "category": "Connection Timeout",
+      "title": "Timeout al conectar por SSL/TLS",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "No se pudo establecer conexión SSL — DNS no resolvió."
+    },
+    {
+      "source": "passive_ports",
+      "category": "DNS Resolution Error",
+      "title": "No se pudo resolver el hostname: noexiste.invalid",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "El hostname noexiste.invalid no se pudo resolver vía DNS."
+    },
+    {
+      "source": "passive_cookies",
+      "category": "Connection Error",
+      "title": "No se pudo conectar al target",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "No se pudo establecer conexión con https://noexiste.invalid"
+    },
+    {
+      "source": "passive_cors",
+      "category": "Connection Error",
+      "title": "No se pudo conectar al target",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "No se pudo establecer conexión con https://noexiste.invalid"
+    },
+    {
+      "source": "passive_disclosure",
+      "category": "Scan Error",
+      "title": "Error al verificar disclosure: ConnectError",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "ConnectError — DNS lookup failed."
+    },
+    {
+      "source": "passive_tech",
+      "category": "Connection Error",
+      "title": "No se pudo conectar al target",
+      "severity": "Info",
+      "cvss_score": 0.0,
+      "description": "No se pudo establecer conexión con https://noexiste.invalid"
+    }
+  ]
+}
