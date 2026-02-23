@@ -5,15 +5,15 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "scan",
-        "options": {
-          "responseMode": "responseNode"
-        }
+        "responseMode": "responseNode",
+        "options": {}
       },
       "id": "webhook-trigger",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [220, 460]
+      "position": [220, 460],
+      "webhookId": "a1b2c3d4-scan-0000-0000-pipeline00001"
     },
     {
       "parameters": {
@@ -24,7 +24,7 @@
       "id": "respond-webhook",
       "name": "Respond Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
+      "typeVersion": 1.2,
       "position": [440, 460]
     },
     {
@@ -148,15 +148,14 @@
     },
     {
       "parameters": {
-        "mode": "combine",
-        "mergeByFields": {},
-        "combinationMode": "multiplex",
+        "mode": "append",
+        "numberInputs": 6,
         "options": {}
       },
       "id": "merge-passive",
       "name": "Merge Passive Checks",
       "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
+      "typeVersion": 3.1,
       "position": [1160, 460]
     },
     {
@@ -222,12 +221,19 @@
     },
     {
       "parameters": {
-        "command": "=docker exec testssl /bin/sh -c \"testssl.sh --jsonfile /tmp/scanner/testssl_{{ $('Webhook Trigger').item.json.body.scan_id }}.json --quiet --fast {{ $('Webhook Trigger').item.json.body.url }} 2>/dev/null; cat /tmp/scanner/testssl_{{ $('Webhook Trigger').item.json.body.scan_id }}.json 2>/dev/null || echo '[]'\""
+        "method": "POST",
+        "url": "http://backend:8000/run/testssl",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ url: $('Webhook Trigger').item.json.body.url, scan_id: $('Webhook Trigger').item.json.body.scan_id }) }}",
+        "options": {
+          "timeout": 120000
+        }
       },
       "id": "run-testssl",
       "name": "Ejecutar testssl.sh",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [2280, 460]
     },
     {
@@ -293,12 +299,19 @@
     },
     {
       "parameters": {
-        "command": "=docker exec nuclei nuclei -u {{ $('Webhook Trigger').item.json.body.url }} -j -severity critical,high,medium -silent -timeout 5 -retries 1 -no-color 2>/dev/null || echo ''"
+        "method": "POST",
+        "url": "http://backend:8000/run/nuclei",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ url: $('Webhook Trigger').item.json.body.url, scan_id: $('Webhook Trigger').item.json.body.scan_id }) }}",
+        "options": {
+          "timeout": 120000
+        }
       },
       "id": "run-nuclei",
       "name": "Ejecutar Nuclei",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [3400, 460]
     },
     {
@@ -768,35 +781,35 @@
     "Check SSL": {
       "main": [
         [
-          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+          { "node": "Merge Passive Checks", "type": "main", "index": 1 }
         ]
       ]
     },
     "Check Ports": {
       "main": [
         [
-          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+          { "node": "Merge Passive Checks", "type": "main", "index": 2 }
         ]
       ]
     },
     "Check Cookies": {
       "main": [
         [
-          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+          { "node": "Merge Passive Checks", "type": "main", "index": 3 }
         ]
       ]
     },
     "Check CORS": {
       "main": [
         [
-          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+          { "node": "Merge Passive Checks", "type": "main", "index": 4 }
         ]
       ]
     },
     "Check Disclosure": {
       "main": [
         [
-          { "node": "Merge Passive Checks", "type": "main", "index": 0 }
+          { "node": "Merge Passive Checks", "type": "main", "index": 5 }
         ]
       ]
     },
