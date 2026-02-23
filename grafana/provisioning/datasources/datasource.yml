@@ -11,6 +11,7 @@ datasources:
     secureJsonData:
       password: scanner_secret_2026
     jsonData:
+      database: vulnscanner
       sslmode: disable
       maxOpenConns: 5
       maxIdleConns: 2
