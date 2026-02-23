@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /c/Users/GBP17/Desktop/n8n-vuln-scanner && docker compose stop n8n 2>&1)",
+      "Bash(docker volume:*)",
+      "Bash(docker rm -f n8n 2>&1 && docker volume rm n8n-vuln-scanner_n8n-data 2>&1)",
+      "Bash(cd /c/Users/GBP17/Desktop/n8n-vuln-scanner && docker compose up -d n8n 2>&1)",
+      "Bash(python3:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.n8n.io)",
+      "WebFetch(domain:community.n8n.io)",
+      "WebFetch(domain:automategeniushub.com)",
+      "Bash(API_KEY=\"n8n_api_1190b84b0baeccc112605d08f4c924c1a2149fa26f06e6708458f6b49691217f\"\ncurl -s -H \"X-N8N-API-KEY: $API_KEY\" 'http://localhost:5678/api/v1/executions/4?includeData=true' 2>&1 | python3 -c \"\nimport sys, json\ndata = json.load\\(sys.stdin\\)\nprint\\('Status:', data.get\\('status'\\)\\)\nprint\\('Finished:', data.get\\('finished'\\)\\)\nrd = data.get\\('data', {}\\)\nif isinstance\\(rd, dict\\):\n    result_data = rd.get\\('resultData', {}\\)\n    run_data = result_data.get\\('runData', {}\\)\n    last_error = result_data.get\\('error', {}\\)\n    if last_error:\n        print\\('GLOBAL ERROR:', json.dumps\\(last_error\\)[:500]\\)\n    for node_name in run_data:\n        for run in run_data[node_name]:\n            error = run.get\\('error'\\)\n            if error:\n                print\\(f'NODE ERROR [{node_name}]: {json.dumps\\(error\\)[:300]}'\\)\n            else:\n                print\\(f'  {node_name}: OK'\\)\n\" 2>&1)",
+      "Bash(API_KEY=\"n8n_api_1190b84b0baeccc112605d08f4c924c1a2149fa26f06e6708458f6b49691217f\"\ncurl -s -H \"X-N8N-API-KEY: $API_KEY\" 'http://localhost:5678/api/v1/executions?limit=5&includeData=true' 2>&1 | python3 -c \"\nimport sys, json\ndata = json.load\\(sys.stdin\\)\nfor e in data.get\\('data', []\\):\n    print\\(f'Execution {e[\\\\\"id\\\\\"]}: {e[\\\\\"status\\\\\"]}'\\)\n    rd = e.get\\('data', {}\\).get\\('resultData', {}\\)\n    if rd:\n        error = rd.get\\('error'\\)\n        if error:\n            print\\(f'  GLOBAL ERROR: {json.dumps\\(error\\).get\\(\\\\\"message\\\\\", str\\(error\\)\\)[:300] if isinstance\\(error, dict\\) else str\\(error\\)[:300]}'\\)\n        run_data = rd.get\\('runData', {}\\)\n        for node_name in run_data:\n            for run in run_data[node_name]:\n                err = run.get\\('error'\\)\n                if err:\n                    msg = err.get\\('message', ''\\) if isinstance\\(err, dict\\) else str\\(err\\)\n                    print\\(f'  ERROR [{node_name}]: {msg[:200]}'\\)\n\" 2>&1)",
+      "Bash(API_KEY=\"n8n_api_1190b84b0baeccc112605d08f4c924c1a2149fa26f06e6708458f6b49691217f\"\ncurl -s -H \"X-N8N-API-KEY: $API_KEY\" 'http://localhost:5678/api/v1/executions?limit=5&includeData=true' 2>&1 | python3 -c \"\nimport sys, json\ndata = json.load\\(sys.stdin\\)\nfor e in data.get\\('data', []\\):\n    print\\(f'Execution {e[\\\\\"id\\\\\"]}: {e[\\\\\"status\\\\\"]}'\\)\n    rd = e.get\\('data', {}\\).get\\('resultData', {}\\)\n    if rd:\n        error = rd.get\\('error'\\)\n        if error:\n            print\\(f'  GLOBAL ERROR: {json.dumps\\(error\\)[:400]}'\\)\n        run_data = rd.get\\('runData', {}\\)\n        for node_name in run_data:\n            for run in run_data[node_name]:\n                err = run.get\\('error'\\)\n                if err:\n                    print\\(f'  ERROR [{node_name}]: {json.dumps\\(err\\)[:300]}'\\)\n\" 2>&1)",
+      "Bash(SCAN_ID=\"30847cb3-85d5-46da-84ab-fcfa4e0ca01b\"\nsleep 120 && curl -s \"http://localhost:8000/scan/$SCAN_ID\" 2>&1 | python3 -c \"\nimport sys, json\ndata = json.load\\(sys.stdin\\)\nprint\\(f'Status: {data[\\\\\"status\\\\\"]}'\\)\nprint\\(f'Score: {data.get\\(\\\\\"global_score\\\\\"\\)}'\\)\nprint\\(f'Findings: {data.get\\(\\\\\"total_findings\\\\\", 0\\)}'\\)\nfor p in data.get\\('phases', []\\):\n    print\\(f'  {p[\\\\\"phase_name\\\\\"]}: {p[\\\\\"status\\\\\"]} \\({p.get\\(\\\\\"findings_count\\\\\", 0\\)} findings\\)'\\)\nif data.get\\('findings'\\):\n    print\\('Top findings:'\\)\n    for f in data['findings'][:5]:\n        print\\(f'  [{f[\\\\\"severity\\\\\"]}] {f[\\\\\"title\\\\\"][:80]}'\\)\n\" 2>&1)",
+      "Bash(cd:*)",
+      "Bash(docker run:*)"
+    ],
+    "defaultMode": "bypassPermissions"
+  }
+}

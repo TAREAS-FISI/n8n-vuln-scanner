@@ -56,18 +56,12 @@ services:
     ports:
       - "5678:5678"
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
       - WEBHOOK_URL=${WEBHOOK_URL}
       - N8N_DIAGNOSTICS_ENABLED=false
       - N8N_HIRING_BANNER_ENABLED=false
       - GENERIC_TIMEZONE=America/Lima
       - N8N_SECURE_COOKIE=false
-      - N8N_RUNNERS_ENABLED=true
-      - EXECUTIONS_PROCESS=main
-      - N8N_PERSISTED_BINARY_DATA_TTL=72
     volumes:
       - n8n-data:/home/node/.n8n
       - /var/run/docker.sock:/var/run/docker.sock
@@ -201,6 +195,25 @@ services:
     networks:
       - scanner-net
     restart: unless-stopped
+
+  # ─── 11. N8N-INIT (Auto-import workflows — one-shot) ─────
+  # Espera a que n8n esté listo, crea owner, API key, importa
+  # workflows y activa el pipeline principal + reporte diario.
+  n8n-init:
+    image: alpine/curl
+    container_name: n8n-init
+    depends_on:
+      - n8n
+    volumes:
+      - ./n8n-workflows:/workflows:ro
+    environment:
+      - N8N_URL=http://n8n:5678
+      - N8N_EMAIL=${N8N_OWNER_EMAIL:-admin@vulnscanner.local}
+      - N8N_PASSWORD=${N8N_OWNER_PASSWORD:-Admin123!}
+    entrypoint: ["sh", "/workflows/init-n8n.sh"]
+    networks:
+      - scanner-net
+    restart: "no"
 
 # ─── REDES ────────────────────────────────────────────────────
 networks:
