@@ -1,69 +1,79 @@
-# 🛡️ n8n Vulnerability Scanner
+# n8n Vulnerability Scanner
 
-**Scanner de Vulnerabilidades Web Inteligente** — Proyecto de Sistemas Inteligentes
-
-Un sistema que orquesta 4 fuentes de detección de vulnerabilidades (FastAPI checks, OWASP ZAP, Nuclei, testssl.sh), las analiza con IA local (Ollama) y presenta resultados en un dashboard interactivo.
+Scanner de vulnerabilidades web que orquesta 4 herramientas de deteccion (FastAPI checks, OWASP ZAP, Nuclei, testssl.sh), analiza resultados con IA local (Ollama) y presenta reportes en un dashboard interactivo.
 
 ---
 
-## Stack Tecnológico
-
-| Componente | Tecnología | Puerto |
-|---|---|---|
-| Frontend | Next.js + Tailwind CSS | `3000` |
-| Backend / API | FastAPI (Python) | `8000` |
-| Orquestador | n8n | `5678` |
-| Base de Datos | PostgreSQL 16 | `5432` |
-| Scanner DAST | OWASP ZAP | `8080` |
-| LLM Local | Ollama (llama3.2:3b) | `11434` |
-| Dashboards | Grafana | `3001` |
-| Target de prueba | DVWA | `8081` |
-| Scanner CVEs | Nuclei | — (CLI) |
-| Auditoría SSL | testssl.sh | — (CLI) |
-
----
-
-## Requisitos Previos
+## Requisitos
 
 - **Docker Desktop** (v24+) con Docker Compose v2
-- **8 GB RAM** mínimo (16 GB recomendado para Ollama)
-- **GPU NVIDIA** (opcional, acelera Ollama significativamente)
-  - Si no tienes GPU, elimina la sección `deploy` del servicio `ollama` en `docker-compose.yml`
-- **20 GB** de espacio en disco (imágenes Docker + modelo LLM)
+- **8 GB RAM** minimo (16 GB recomendado)
+- **20 GB** de disco (imagenes Docker + modelo LLM)
+- **GPU NVIDIA** (opcional, acelera Ollama). Sin GPU, comentar la seccion `deploy` del servicio `ollama` en `docker-compose.yml`
 
 ---
 
-## Instalación y Ejecución
+## Variables de Entorno
 
-### 1. Clonar el repositorio
+Copiar `.env.example` a `.env` y ajustar los valores:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Descripcion | Valor por defecto |
+|---|---|---|
+| `POSTGRES_USER` | Usuario de PostgreSQL | `scanner` |
+| `POSTGRES_PASSWORD` | Password de PostgreSQL | `scanner_secret_2026` |
+| `POSTGRES_DB` | Nombre de la base de datos | `vulnscanner` |
+| `N8N_ENCRYPTION_KEY` | Clave de cifrado de n8n (cambiar en produccion) | `cambiar-esta-clave-en-produccion` |
+| `WEBHOOK_URL` | URL base de webhooks de n8n | `http://localhost:5678/` |
+| `N8N_OWNER_EMAIL` | Email del owner de n8n | `admin@vulnscanner.local` |
+| `N8N_OWNER_PASSWORD` | Password del owner de n8n (min 8 chars, 1 mayuscula, 1 numero) | `Admin123!` |
+| `GF_SECURITY_ADMIN_USER` | Usuario admin de Grafana | `admin` |
+| `GF_SECURITY_ADMIN_PASSWORD` | Password admin de Grafana | `admin` |
+| `OLLAMA_MODEL` | Modelo LLM para analisis | `llama3.2:3b` |
+| `DVWA_SECURITY_LEVEL` | Nivel de seguridad de DVWA (`low` para testing) | `low` |
+
+---
+
+## Ejecucion desde Cero
+
+### 1. Clonar y configurar
 
 ```bash
 git clone https://github.com/TAREAS-FISI/n8n-vuln-scanner
 cd n8n-vuln-scanner
+cp .env.example .env
 ```
 
-### 2. Configurar variables de entorno
-
-```bash
-# El archivo .env ya está incluido con valores por defecto
-# Editar .env si deseas cambiar contraseñas
-```
-
-### 3. Levantar todos los servicios
+### 2. Levantar los servicios
 
 ```bash
 docker compose up -d
 ```
 
-> ⏳ La primera ejecución descargará ~10 GB de imágenes Docker. Paciencia.
+> La primera ejecucion descarga ~10 GB de imagenes. Paciencia.
 
-### 4. Verificar que los servicios están corriendo
+### 3. Verificar que todo esta corriendo
 
 ```bash
 docker compose ps
 ```
 
-Deberías ver los 10 servicios en estado `running` o `Up`.
+Los 11 servicios deben estar en estado `running` (excepto `n8n-init` que termina con `Exited (0)` tras completar la inicializacion).
+
+### 4. Verificar la inicializacion de n8n
+
+```bash
+docker compose logs n8n-init
+```
+
+Debe mostrar: owner creado, workflow importado y activado. Si falla, re-ejecutar:
+
+```bash
+docker compose restart n8n-init
+```
 
 ### 5. Descargar el modelo de Ollama
 
@@ -71,7 +81,7 @@ Deberías ver los 10 servicios en estado `running` o `Up`.
 docker exec ollama ollama pull llama3.2:3b
 ```
 
-> Esto descarga ~2 GB. Solo se hace una vez.
+> Descarga ~2 GB. Solo se hace una vez.
 
 ### 6. Configurar DVWA (primera vez)
 
@@ -79,71 +89,82 @@ docker exec ollama ollama pull llama3.2:3b
 2. Login: `admin` / `password`
 3. Ir a http://localhost:8081/setup.php
 4. Click en **"Create / Reset Database"**
-5. Volver a login: `admin` / `password`
+5. Login de nuevo: `admin` / `password`
 
-### 7. Verificar servicios
+### 7. Listo - Lanzar un escaneo
 
 ```bash
-# n8n
-curl http://localhost:5678/healthz
+# Escaneo completo via API
+curl -X POST http://localhost:8000/scan \
+  -H 'Content-Type: application/json' \
+  -d '{"target_url": "http://dvwa:80"}'
 
-# ZAP
-curl http://localhost:8080/JSON/core/view/version/
-
-# Ollama (verificar modelo)
-curl http://localhost:11434/api/tags
-
-# DVWA
-curl http://localhost:8081
-
-# FastAPI (cuando esté implementado)
-curl http://localhost:8000/health
+# O usar el frontend en http://localhost:3000
 ```
 
 ---
 
-## Accesos Rápidos
+## Servicios y Puertos
 
-| Servicio | URL | Credenciales |
+| Servicio | Tecnologia | Puerto | URL |
+|---|---|---|---|
+| Frontend | Next.js | `3000` | http://localhost:3000 |
+| Backend API | FastAPI | `8000` | http://localhost:8000/docs |
+| n8n | Orquestador | `5678` | http://localhost:5678 |
+| PostgreSQL | Base de datos | `5432` | — |
+| OWASP ZAP | Scanner DAST | `8080` | http://localhost:8080 |
+| Ollama | LLM local | `11434` | http://localhost:11434 |
+| Grafana | Dashboards | `3001` | http://localhost:3001 |
+| DVWA | Target vulnerable | `8081` | http://localhost:8081 |
+| Nuclei | Scanner CVEs | — | CLI via backend |
+| testssl | Auditoria SSL | — | CLI via backend |
+| n8n-init | Auto-init | — | One-shot, termina solo |
+
+### Credenciales
+
+| Servicio | Usuario | Password |
 |---|---|---|
-| **Frontend** | http://localhost:3000 | — |
-| **FastAPI Docs** | http://localhost:8000/docs | — |
-| **n8n** | http://localhost:5678 | `admin` / `admin` |
-| **Grafana** | http://localhost:3001 | `admin` / `admin` |
-| **DVWA** | http://localhost:8081 | `admin` / `password` |
-| **ZAP API** | http://localhost:8080 | — |
-| **Ollama API** | http://localhost:11434 | — |
+| n8n | Valor de `N8N_OWNER_EMAIL` | Valor de `N8N_OWNER_PASSWORD` |
+| Grafana | `admin` | `admin` |
+| DVWA | `admin` | `password` |
 
 ---
 
 ## Arquitectura
 
 ```
-Usuario → Next.js(:3000) → FastAPI(:8000) → n8n(:5678)
-                                                │
-                      ┌─────────┬───────────┬───┴────────┐
-                      ▼         ▼           ▼            ▼
-                  FastAPI    testssl.sh   Nuclei     OWASP ZAP
-                  Checks     SSL/TLS     9000+ CVE   Spider+DAST
-                      │         │           │            │
-                      └─────────┴───────────┴────────────┘
-                                        │
+Usuario --> Next.js(:3000) --> FastAPI(:8000) --> n8n(:5678)
+                                                    |
+                      +----------+-----------+------+----------+
+                      v          v           v                 v
+                  FastAPI    testssl.sh    Nuclei          OWASP ZAP
+                  Checks     SSL/TLS     9000+ CVE        Spider+DAST
+                      |          |           |                 |
+                      +----------+-----------+-----------------+
+                                        |
                                   Merge + Score
-                                        │
+                                        |
                                    Ollama LLM
-                                   (análisis IA)
-                                        │
+                                  (analisis IA)
+                                        |
                                    PostgreSQL
-                                        │
-                              ┌─────────┴─────────┐
-                              ▼                   ▼
+                                        |
+                              +---------+---------+
+                              v                   v
                           Next.js              Grafana
-                          (reporte)           (dashboard)
+                         (reporte)           (dashboard)
 ```
+
+**Pipeline de escaneo (orquestado por n8n):**
+1. **passive_checks** — 6 checks en paralelo (headers, SSL, puertos, cookies, CORS, disclosure)
+2. **testssl** — Auditoria SSL/TLS profunda
+3. **nuclei** — Deteccion de CVEs con 9000+ templates
+4. **zap** — Spider + Active Scan (DAST)
+5. **scoring_llm** — Analisis y scoring con Ollama
 
 ---
 
-## Comandos Útiles
+## Comandos Utiles
 
 ```bash
 # Levantar todo
@@ -152,80 +173,36 @@ docker compose up -d
 # Ver logs en tiempo real
 docker compose logs -f
 
-# Ver logs de un servicio específico
+# Logs de un servicio especifico
 docker compose logs -f backend
 docker compose logs -f n8n
 
 # Detener todo
 docker compose down
 
-# Detener y eliminar volumenes (reset completo)
+# Reset completo (elimina datos)
 docker compose down -v
 
-# Ejecutar tests del backend
-docker exec backend pytest -v
+# Re-inicializar n8n (re-importar workflows)
+docker compose restart n8n-init
 
 # Acceder a PostgreSQL
 docker exec -it postgres psql -U scanner -d vulnscanner
-```
 
----
-
-## Testing y Datasets
-
-La carpeta `datasets/` contiene escenarios de prueba y resultados simulados:
-
-| Archivo | Descripción |
-|---|---|
-| `test_scenarios.md` | 6 escenarios de prueba con targets de distinta seguridad |
-| `sample_scan_vulnerable.json` | Resultado simulado de un target vulnerable (DVWA) — score ~22 |
-| `sample_scan_secure.json` | Resultado simulado de un target seguro (github.com) — score ~88 |
-| `sample_scan_error.json` | Resultado simulado cuando el target no existe |
-
-### Quick Test
-
-```bash
-# 1. Verificar que el backend responde y la DB está conectada
+# Health checks
 curl http://localhost:8000/health
-
-# 2. Ejecutar un check individual (no necesita n8n)
-curl -X POST http://localhost:8000/check/headers \
-  -H 'Content-Type: application/json' \
-  -d '{"url": "https://github.com"}'
-
-# 3. Ejecutar un scan completo (requiere n8n y todos los servicios)
-curl -X POST http://localhost:8000/scan \
-  -H 'Content-Type: application/json' \
-  -d '{"target_url": "http://dvwa:80"}'
+curl http://localhost:5678/healthz
 ```
 
 ---
 
-## Grafana Dashboard
+## Sin GPU NVIDIA
 
-El dashboard de Grafana se provisiona automáticamente con **10 paneles**:
-
-1. **Gauge** — Score promedio de seguridad
-2. **Pie Chart** — Distribución de findings por severidad
-3. **Bar Chart** — Top 10 vulnerabilidades más frecuentes
-4. **Time Series** — Scores de seguridad en el tiempo
-5. **Tabla** — Últimos 20 escaneos con estado y score
-6. **Stat** — Total escaneos / Total findings / Promedio findings/scan
-7. **Bar Chart** — Findings por fuente de detección
-8. **Stacked Bar** — Severidad por escaneo (últimos 10)
-
-Acceder a Grafana: http://localhost:3001 (`admin` / `admin`)
-
----
-
-## Nota sobre GPU
-
-Si **no tienes GPU NVIDIA**, edita `docker-compose.yml` y comenta la sección `deploy` del servicio `ollama`:
+Comentar la seccion `deploy` del servicio `ollama` en `docker-compose.yml`:
 
 ```yaml
   ollama:
     image: ollama/ollama:latest
-    # Comentar estas líneas si no tienes GPU:
     # deploy:
     #   resources:
     #     reservations:
@@ -235,10 +212,10 @@ Si **no tienes GPU NVIDIA**, edita `docker-compose.yml` y comenta la sección `d
     #           capabilities: [gpu]
 ```
 
-Ollama funcionará con CPU, pero será más lento (~30-60s por análisis vs ~5-10s con GPU).
+Ollama funcionara con CPU (~30-60s por analisis vs ~5-10s con GPU).
 
 ---
 
 ## Equipo
 
-Proyecto de Sistemas Inteligentes — Curso Universitario (2026)
+Proyecto de Sistemas Inteligentes (2026)
